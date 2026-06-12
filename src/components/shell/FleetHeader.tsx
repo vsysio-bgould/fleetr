@@ -2,6 +2,7 @@
 
 import { useFleet } from "@/contexts/FleetContext";
 import { ConnectionPill } from "@/components/ConnectionPill";
+import { LogoutButton } from "@/components/LogoutButton";
 
 interface Props {
   fleetName: string;
@@ -39,6 +40,7 @@ export function FleetHeader({ fleetName, fcName }: Props) {
           {memberCount} member{memberCount !== 1 ? "s" : ""}
         </div>
         <ConnectionPill status={connection} />
+        <LogoutButton />
       </div>
     </header>
   );

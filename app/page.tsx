@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import db from "@/lib/db";
 import Link from "next/link";
+import { LogoutButton } from "@/components/LogoutButton";
 
 export default async function HomePage() {
   const cookieStore = await cookies();
@@ -52,7 +53,9 @@ export default async function HomePage() {
           </p>
         </div>
 
-        {!token && (
+        {token ? (
+          <LogoutButton className="text-xs text-fleet-text-muted hover:text-fleet-text transition-colors" />
+        ) : (
           <Link
             href="/login"
             className="text-xs text-fleet-text-muted hover:text-fleet-text transition-colors"
