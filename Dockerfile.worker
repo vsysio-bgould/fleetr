@@ -1,6 +1,6 @@
-FROM node:24-alpine AS base
+FROM node:24-bullseye AS base
 WORKDIR /app
-RUN apk add --no-cache libc6-compat
+RUN apt update && apt install openssl
 
 FROM base AS deps
 COPY package.json package-lock.json ./
