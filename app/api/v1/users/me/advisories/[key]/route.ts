@@ -8,11 +8,12 @@ export async function POST(
   { params }: { params: { key: string } }
 ) {
   try {
+    const { key } = await Promise.resolve(params);
     const auth = await requireAuth(req);
     const body = await req.json().catch(() => ({}));
     const permanent = Boolean(body.permanent);
     const service = new AdvisoryService();
-    await service.dismiss(auth.characterId, params.key as AdvisoryKey, permanent);
+    await service.dismiss(auth.characterId, key as AdvisoryKey, permanent);
     return noContent();
   } catch (err) {
     return errorResponse(err);

@@ -8,10 +8,11 @@ export async function GET(
   { params }: { params: { fleetId: string } }
 ) {
   try {
-    const ctx = await requireSession(req, params.fleetId);
+    const { fleetId } = await Promise.resolve(params);
+    const ctx = await requireSession(req, fleetId);
     requireFc(ctx);
     const service = new MemberService();
-    const members = await service.list(params.fleetId);
+    const members = await service.list(fleetId);
     return okList(members);
   } catch (err) {
     return errorResponse(err);

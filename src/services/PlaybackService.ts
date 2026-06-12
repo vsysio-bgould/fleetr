@@ -17,7 +17,7 @@ export interface PlaybackState {
   fleetOffsetSeconds: number | null;
 }
 
-const ADVANCE_JOB_ID = (fleetId: string) => `fleet-advance:${fleetId}`;
+const ADVANCE_JOB_ID = (fleetId: string) => `fleet-advance-${fleetId}`;
 
 interface PlayableEntry {
   id: string;
@@ -69,8 +69,9 @@ export class PlaybackService {
   async setTrack(
     fleetId: string,
     queueEntryId: string,
-    initiatedBy: number | null
-  ): Promise<void> {
+    initiatedBy: number | null,
+    options: { broadcast?: boolean } = {}
+  ): Promise<ServerMessage> {
     const entry = await db.queueEntry.findUnique({
       where: { id: queueEntryId },
       select: { ...PLAYABLE_SELECT, fleetId: true },
@@ -82,18 +83,24 @@ export class PlaybackService {
 
     const nowPlaying = await this.applyTrack(fleetId, entry);
 
-    void broadcastToFleet(fleetId, {
+    const message = {
       type: "fleet:now-playing",
       payload: nowPlaying,
-    } satisfies ServerMessage);
+    } satisfies ServerMessage;
+
+    if (options.broadcast !== false) {
+      void broadcastToFleet(fleetId, message);
+    }
 
     logger.info({ fleetId, queueEntryId, initiatedBy }, "Playback track set");
+    return message;
   }
 
   async advance(
     fleetId: string,
-    initiatedBy: number | null
-  ): Promise<{ nowPlaying: boolean }> {
+    initiatedBy: number | null,
+    options: { broadcast?: boolean } = {}
+  ): Promise<{ nowPlaying: boolean; message: ServerMessage }> {
     const fleet = await db.fleet.findUnique({
       where: { id: fleetId },
       select: { mode: true },
@@ -105,17 +112,21 @@ export class PlaybackService {
     if (!nextEntry) {
       await this.clearTrack(fleetId);
 
-      void broadcastToFleet(fleetId, {
+      const message = {
         type: "fleet:now-playing",
         payload: null,
-      } satisfies ServerMessage);
+      } satisfies ServerMessage;
+
+      if (options.broadcast !== false) {
+        void broadcastToFleet(fleetId, message);
+      }
 
       logger.info({ fleetId, initiatedBy }, "Queue exhausted, playback cleared");
-      return { nowPlaying: false };
+      return { nowPlaying: false, message };
     }
 
-    await this.setTrack(fleetId, nextEntry.id, initiatedBy);
-    return { nowPlaying: true };
+    const message = await this.setTrack(fleetId, nextEntry.id, initiatedBy, options);
+    return { nowPlaying: true, message };
   }
 
   /**
@@ -127,8 +138,9 @@ export class PlaybackService {
   async setMode(
     fleetId: string,
     mode: FleetMode,
-    initiatedBy: number | null
-  ): Promise<void> {
+    initiatedBy: number | null,
+    options: { broadcast?: boolean } = {}
+  ): Promise<ServerMessage> {
     const previous = await db.fleet.findUnique({
       where: { id: fleetId },
       select: { mode: true },
@@ -144,11 +156,15 @@ export class PlaybackService {
       await this.clearTrack(fleetId);
     }
 
-    void broadcastToFleet(fleetId, {
+    const message = {
       type: "fleet:mode-changed",
       mode,
       nowPlaying,
-    } satisfies ServerMessage);
+    } satisfies ServerMessage;
+
+    if (options.broadcast !== false) {
+      void broadcastToFleet(fleetId, message);
+    }
 
     await db.auditLog.create({
       data: {
@@ -159,15 +175,24 @@ export class PlaybackService {
     });
 
     logger.info({ fleetId, mode, initiatedBy }, "Fleet mode changed");
+    return message;
   }
 
-  async setVolume(fleetId: string, volume: number): Promise<void> {
+  async setVolume(
+    fleetId: string,
+    volume: number,
+    options: { broadcast?: boolean } = {}
+  ): Promise<ServerMessage> {
     // Volume is runtime state only — no DB write needed.
-    void broadcastToFleet(fleetId, {
+    const message = {
       type: "fleet:volume-changed",
       volume,
-    } satisfies ServerMessage);
+    } satisfies ServerMessage;
+    if (options.broadcast !== false) {
+      void broadcastToFleet(fleetId, message);
+    }
     logger.debug({ fleetId, volume }, "Fleet volume changed");
+    return message;
   }
 
   /** Persist the reference track + schedule auto-advance. Does not broadcast. */

@@ -3,17 +3,17 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 
-interface ScopeGate {
-  key: string;
+interface ScopeInfo {
   scope: string;
+  required: boolean;
   label: string;
+  description: string;
   consequence: string;
 }
 
 interface ScopeSelectionData {
-  tiers: Record<string, string[]>;
-  gates: Record<string, ScopeGate>;
-  storedScopes: string[];
+  scopes: ScopeInfo[];
+  preference: string[] | null;
 }
 
 export default function ScopeSelectionPage() {
@@ -27,9 +27,10 @@ export default function ScopeSelectionPage() {
   useEffect(() => {
     fetch("/api/v1/auth/scope-selection")
       .then((r) => r.json())
-      .then((d: ScopeSelectionData) => {
+      .then((body: { data: ScopeSelectionData }) => {
+        const d = body.data;
         setData(d);
-        setSelectedScopes(d.storedScopes);
+        setSelectedScopes(d.preference ?? d.scopes.filter((s) => s.required).map((s) => s.scope));
       })
       .catch(console.error);
   }, []);
@@ -42,7 +43,11 @@ export default function ScopeSelectionPage() {
 
   const selectTier = (tier: string) => {
     if (!data) return;
-    setSelectedScopes([...(data.tiers[tier] ?? [])]);
+    if (tier === "REQUIRED") {
+      setSelectedScopes(data.scopes.filter((s) => s.required).map((s) => s.scope));
+      return;
+    }
+    setSelectedScopes(data.scopes.map((s) => s.scope));
   };
 
   const handleContinue = async () => {
@@ -59,7 +64,13 @@ export default function ScopeSelectionPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ scopes: selectedScopes, returnUrl }),
       });
-      const { redirectUrl } = await res.json();
+      const body = await res.json();
+      const redirectUrl = body.data?.redirectUrl;
+
+      if (!res.ok || !redirectUrl) {
+        throw new Error(body.error?.message ?? "Failed to start EVE SSO login");
+      }
+
       window.location.href = redirectUrl;
     } finally {
       setLoading(false);
@@ -74,8 +85,6 @@ export default function ScopeSelectionPage() {
     );
   }
 
-  const gates = Object.values(data.gates);
-
   return (
     <div className="min-h-screen bg-fleet-bg flex items-center justify-center p-4">
       <div className="bg-fleet-surface border border-fleet-border rounded-lg p-8 w-full max-w-lg flex flex-col gap-6">
@@ -88,7 +97,7 @@ export default function ScopeSelectionPage() {
 
         {/* Tier presets */}
         <div className="flex gap-2">
-          {Object.keys(data.tiers).map((tier) => (
+          {["REQUIRED", "ALL"].map((tier) => (
             <button
               key={tier}
               onClick={() => selectTier(tier)}
@@ -101,9 +110,9 @@ export default function ScopeSelectionPage() {
 
         {/* Individual scope toggles */}
         <div className="flex flex-col gap-3">
-          {gates.map((gate) => (
+          {data.scopes.map((gate) => (
             <label
-              key={gate.key}
+              key={`${gate.scope}:${gate.label}`}
               className="flex items-start gap-3 cursor-pointer group"
             >
               <input

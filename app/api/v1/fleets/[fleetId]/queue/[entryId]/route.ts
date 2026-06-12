@@ -16,11 +16,12 @@ export async function DELETE(
   { params }: { params: { fleetId: string; entryId: string } }
 ) {
   try {
-    const ctx = await requireSession(req, params.fleetId);
+    const { fleetId, entryId } = await Promise.resolve(params);
+    const ctx = await requireSession(req, fleetId);
     const isFC = ctx.role === "FLEET_COMMANDER" || ctx.role === "FC_DELEGATE";
 
     const service = new QueueService(new YouTubeClient(), new SoundCloudClient());
-    await service.remove(params.fleetId, params.entryId, ctx.characterId, isFC);
+    await service.remove(fleetId, entryId, ctx.characterId, isFC);
     return noContent();
   } catch (err) {
     return errorResponse(err);
@@ -32,7 +33,8 @@ export async function PATCH(
   { params }: { params: { fleetId: string; entryId: string } }
 ) {
   try {
-    const ctx = await requireSession(req, params.fleetId);
+    const { fleetId, entryId } = await Promise.resolve(params);
+    const ctx = await requireSession(req, fleetId);
     requireFc(ctx);
 
     const body = await req.json();
@@ -43,8 +45,8 @@ export async function PATCH(
 
     const service = new QueueService(new YouTubeClient(), new SoundCloudClient());
     const updated = await service.reorder(
-      params.fleetId,
-      params.entryId,
+      fleetId,
+      entryId,
       ctx.characterId,
       parsed.data.position
     );

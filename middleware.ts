@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { randomUUID } from "crypto";
 
-const PUBLIC_PATHS = ["/login", "/api/v1/auth/", "/api/v1/health"];
+const PUBLIC_PATHS = ["/login", "/api/v1/auth", "/api/v1/health"];
 
 function isPublic(pathname: string): boolean {
   return PUBLIC_PATHS.some((p) => pathname.startsWith(p));
@@ -11,8 +10,9 @@ export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // Attach request ID to all requests
-  const requestId = req.headers.get("X-Request-Id") ?? randomUUID();
+  const requestId = req.headers.get("X-Request-Id") ?? globalThis.crypto.randomUUID();
   const requestHeaders = new Headers(req.headers);
+
   requestHeaders.set("X-Request-Id", requestId);
 
   // Auth redirect for page routes — skip API and public paths
@@ -35,5 +35,5 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"]
 };

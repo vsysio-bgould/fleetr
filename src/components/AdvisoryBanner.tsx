@@ -10,7 +10,6 @@ interface Props {
 
 export function AdvisoryBanner({ advisoryKey, message, onDismiss }: Props) {
   const [dismissed, setDismissed] = useState(false);
-  const [permanent, setPermanent] = useState(false);
 
   const dismiss = async (perm: boolean) => {
     await fetch("/api/v1/users/me/advisories", {
@@ -19,7 +18,6 @@ export function AdvisoryBanner({ advisoryKey, message, onDismiss }: Props) {
       body: JSON.stringify({ key: advisoryKey, permanent: perm }),
     });
     setDismissed(true);
-    setPermanent(perm);
     onDismiss?.();
   };
 

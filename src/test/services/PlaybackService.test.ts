@@ -75,7 +75,7 @@ describe("PlaybackService", () => {
         { fleetId: "fleet-uuid" },
         expect.objectContaining({
           delay: 212000,
-          jobId: "fleet-advance:fleet-uuid",
+          jobId: "fleet-advance-fleet-uuid",
         })
       );
 

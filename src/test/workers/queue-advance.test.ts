@@ -25,7 +25,7 @@ describe("queue-advance worker", () => {
   });
 
   it("discards stale jobs with mismatched IDs", async () => {
-    const job = makeJob({ fleetId: "fleet-uuid" }, "fleet-advance:other-fleet");
+    const job = makeJob({ fleetId: "fleet-uuid" }, "fleet-advance-other-fleet");
     await workerDef.process(job);
     // Should not call DB or fetch since it exited early
     const db = (await import("@/lib/db")).default;
@@ -40,7 +40,7 @@ describe("queue-advance worker", () => {
       disbandedAt: new Date(),
     } as never);
 
-    const job = makeJob({ fleetId: "fleet-uuid" }, "fleet-advance:fleet-uuid");
+    const job = makeJob({ fleetId: "fleet-uuid" }, "fleet-advance-fleet-uuid");
     await workerDef.process(job);
     expect(mockFetch).not.toHaveBeenCalled();
   });
@@ -58,7 +58,7 @@ describe("queue-advance worker", () => {
       id: "next-entry",
     } as never);
 
-    const job = makeJob({ fleetId: "fleet-uuid" }, "fleet-advance:fleet-uuid");
+    const job = makeJob({ fleetId: "fleet-uuid" }, "fleet-advance-fleet-uuid");
     await workerDef.process(job);
 
     expect(mockFetch).toHaveBeenCalledWith(
@@ -81,7 +81,7 @@ describe("queue-advance worker", () => {
     } as never);
     vi.mocked(db.queueEntry.findFirst).mockResolvedValueOnce(null);
 
-    const job = makeJob({ fleetId: "fleet-uuid" }, "fleet-advance:fleet-uuid");
+    const job = makeJob({ fleetId: "fleet-uuid" }, "fleet-advance-fleet-uuid");
     await workerDef.process(job);
 
     expect(mockFetch).toHaveBeenCalledWith(

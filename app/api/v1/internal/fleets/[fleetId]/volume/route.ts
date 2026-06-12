@@ -9,6 +9,7 @@ function requireSecret(req: NextRequest): boolean {
 
 const bodySchema = z.object({
   volume: z.number().min(0).max(100),
+  broadcast: z.boolean().optional(),
 });
 
 export async function POST(
@@ -16,13 +17,16 @@ export async function POST(
   { params }: { params: { fleetId: string } }
 ) {
   try {
+    const { fleetId } = await Promise.resolve(params);
     if (!requireSecret(req)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     const body = bodySchema.parse(await req.json());
     const service = new PlaybackService();
-    await service.setVolume(params.fleetId, body.volume);
-    return new NextResponse(null, { status: 204 });
+    const message = await service.setVolume(fleetId, body.volume, {
+      broadcast: body.broadcast,
+    });
+    return NextResponse.json({ data: { message } });
   } catch (err) {
     return errorResponse(err);
   }

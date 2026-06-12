@@ -4,7 +4,7 @@ import db from "@/lib/db";
 import Link from "next/link";
 
 export default async function HomePage() {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const token = cookieStore.get("fleetr_token")?.value;
 
   if (token) {

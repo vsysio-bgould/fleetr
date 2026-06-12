@@ -86,6 +86,7 @@ services:
     env_file: .env.local
     environment:
       NODE_ENV: development
+      PARTYKIT_INTERNAL_URL: http://partykit:1999
     ports:
       - "3000:3000"
     volumes:
@@ -133,7 +134,7 @@ services:
     volumes:
       - .:/app
       - node_modules:/app/node_modules
-    command: npx partykit dev --port 1999 --host 0.0.0.0
+    command: npx partykit dev --port 1999
     depends_on:
       app:
         condition: service_started

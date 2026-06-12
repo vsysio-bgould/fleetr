@@ -3,7 +3,7 @@ import { z } from "zod";
 import { requireAuth } from "@/lib/auth-middleware";
 import { FleetService } from "@/services/FleetService";
 import { EsiClient } from "@/infra/esi/EsiClient";
-import { ok, created, errorResponse } from "@/lib/api-response";
+import { created, errorResponse } from "@/lib/api-response";
 import { ValidationError } from "@/lib/errors";
 import { rateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import db from "@/lib/db";

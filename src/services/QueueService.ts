@@ -24,7 +24,10 @@ export interface QueueEntryRow {
   submittedBy: number;
   position: number;
   votes: number;
+  downvotes: number;
   hasVoted?: boolean;
+  hasDownvoted?: boolean;
+  removedAt: Date | null;
 }
 
 export class QueueService {
@@ -44,6 +47,7 @@ export class QueueService {
     duration: number | null;
     platform: string;
   }> {
+    void queue;
     const fleet = await db.fleet.findUnique({
       where: { id: fleetId },
       select: { mediaSource: true },
@@ -114,10 +118,12 @@ export class QueueService {
         submittedBy: entry.submittedBy,
         position: entry.position,
         votes: 0,
+        downvotes: 0,
+        removedAt: null,
       },
     } satisfies ServerMessage);
 
-    return { ...entry, votes: 0, hasVoted: false };
+    return { ...entry, votes: 0, downvotes: 0, hasVoted: false, hasDownvoted: false };
   }
 
   async remove(
@@ -237,7 +243,7 @@ export class QueueService {
     const updated = await db.queueEntry.update({
       where: { id: entryId },
       data: { position },
-      include: { votes: true },
+      include: { votes: true, downvotes: true },
     });
 
     void broadcastToFleet(fleetId, {
@@ -259,7 +265,108 @@ export class QueueService {
       submittedBy: updated.submittedBy,
       position: updated.position,
       votes: updated.votes.length,
+      downvotes: updated.downvotes.length,
+      removedAt: updated.removedAt,
     };
+  }
+
+  async downvote(
+    fleetId: string,
+    entryId: string,
+    characterId: number
+  ): Promise<{ downvotes: number; removed: boolean }> {
+    const entry = await db.queueEntry.findUnique({
+      where: { id: entryId },
+      select: { fleetId: true, removedAt: true, queue: true },
+    });
+    if (!entry || entry.fleetId !== fleetId) throw new NotFoundError("Queue entry");
+    if (entry.removedAt) throw new NotFoundError("Queue entry");
+
+    await db.queueDownvote
+      .create({ data: { queueEntryId: entryId, characterId } })
+      .catch(() => null);
+
+    await db.auditLog.create({
+      data: {
+        event: "queue.downvote-cast",
+        actor: String(characterId),
+        payload: { fleetId, queueEntryId: entryId },
+      },
+    });
+
+    const [downvotes, fleet, activeViewers] = await Promise.all([
+      db.queueDownvote.count({ where: { queueEntryId: entryId } }),
+      db.fleet.findUnique({
+        where: { id: fleetId },
+        select: { downvoteDeletePercent: true },
+      }),
+      db.session.count({
+        where: {
+          fleetId,
+          expiresAt: { gt: new Date() },
+        },
+      }),
+    ]);
+
+    void broadcastToFleet(fleetId, {
+      type: "queue:downvote-updated",
+      queueEntryId: entryId,
+      downvotes,
+      queue: entry.queue,
+      voterId: characterId,
+      downvoted: true,
+    } satisfies ServerMessage);
+
+    const threshold = fleet?.downvoteDeletePercent ?? 50;
+    const percent = activeViewers > 0 ? (downvotes / activeViewers) * 100 : 0;
+    const removed = percent >= threshold;
+
+    if (removed) {
+      await db.queueEntry.update({
+        where: { id: entryId },
+        data: { removedAt: new Date() },
+      });
+
+      void broadcastToFleet(fleetId, {
+        type: "queue:entry-removed",
+        queueEntryId: entryId,
+        queue: entry.queue,
+      } satisfies ServerMessage);
+    }
+
+    return { downvotes, removed };
+  }
+
+  async removeDownvote(
+    fleetId: string,
+    entryId: string,
+    characterId: number
+  ): Promise<number> {
+    const entry = await db.queueEntry.findUnique({
+      where: { id: entryId },
+      select: { fleetId: true, queue: true, removedAt: true },
+    });
+    if (!entry || entry.fleetId !== fleetId) throw new NotFoundError("Queue entry");
+    if (entry.removedAt) throw new NotFoundError("Queue entry");
+
+    await db.queueDownvote
+      .delete({
+        where: { queueEntryId_characterId: { queueEntryId: entryId, characterId } },
+      })
+      .catch(() => null);
+
+    const downvotes = await db.queueDownvote.count({ where: { queueEntryId: entryId } });
+
+    void broadcastToFleet(fleetId, {
+      type: "queue:downvote-updated",
+      queueEntryId: entryId,
+      downvotes,
+      queue: entry.queue,
+      voterId: characterId,
+      downvoted: false,
+    } satisfies ServerMessage);
+
+    return downvotes;
   }
 
   async list(
@@ -270,9 +377,9 @@ export class QueueService {
     offset = 0
   ): Promise<QueueEntryRow[]> {
     const entries = await db.queueEntry.findMany({
-      where: { fleetId, queue, removedAt: null },
-      include: { votes: true },
-      orderBy: [{ position: "asc" }],
+      where: { fleetId, queue },
+      include: { votes: true, downvotes: true },
+      orderBy: [{ removedAt: "asc" }, { position: "asc" }],
       take: limit,
       skip: offset,
     });
@@ -290,11 +397,18 @@ export class QueueService {
         submittedBy: e.submittedBy,
         position: e.position,
         votes: e.votes.length,
+        downvotes: e.downvotes?.length ?? 0,
         hasVoted: characterId
           ? e.votes.some((v) => v.characterId === characterId)
           : false,
+        hasDownvoted: characterId
+          ? e.downvotes?.some((v) => v.characterId === characterId) ?? false
+          : false,
+        removedAt: e.removedAt ?? null,
       }))
       .sort((a, b) => {
+        if (a.removedAt && !b.removedAt) return 1;
+        if (!a.removedAt && b.removedAt) return -1;
         if (b.votes !== a.votes) return b.votes - a.votes;
         return a.position - b.position;
       });

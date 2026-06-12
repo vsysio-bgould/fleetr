@@ -25,7 +25,7 @@ export async function rateLimit(
 ): Promise<void> {
   const identifier = characterId
     ? `char:${characterId}`
-    : `ip:${req.headers.get("x-forwarded-for") ?? req.ip ?? "unknown"}`;
+    : `ip:${req.headers.get("x-forwarded-for") ?? "unknown"}`;
 
   const key = `ratelimit:${options.namespace}:${identifier}`;
 

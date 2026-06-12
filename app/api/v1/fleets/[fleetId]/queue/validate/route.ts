@@ -18,7 +18,8 @@ export async function POST(
   { params }: { params: { fleetId: string } }
 ) {
   try {
-    await requireSession(req, params.fleetId);
+    const { fleetId } = await Promise.resolve(params);
+    await requireSession(req, fleetId);
 
     const body = await req.json();
     const parsed = bodySchema.safeParse(body);
@@ -28,7 +29,7 @@ export async function POST(
 
     const service = new QueueService(new YouTubeClient(), new SoundCloudClient());
     const metadata = await service.validate(
-      params.fleetId,
+      fleetId,
       parsed.data.mediaUrl,
       parsed.data.queue as QueueType
     );

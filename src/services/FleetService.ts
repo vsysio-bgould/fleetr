@@ -114,8 +114,18 @@ export class FleetService {
     });
     if (!fleet) throw new NotFoundError("Fleet");
 
-    const { joinToken: _omit, _count, ...rest } = fleet;
-    return { ...rest, memberCount: _count.sessions };
+    return {
+      id: fleet.id,
+      esiFleetId: fleet.esiFleetId,
+      name: fleet.name,
+      mode: fleet.mode,
+      mediaSource: fleet.mediaSource,
+      fcCharacterId: fleet.fcCharacterId,
+      memberCount: fleet._count.sessions,
+      expiresAt: fleet.expiresAt,
+      disbandedAt: fleet.disbandedAt,
+      createdAt: fleet.createdAt,
+    };
   }
 
   async disband(fleetId: string, characterId: number): Promise<void> {

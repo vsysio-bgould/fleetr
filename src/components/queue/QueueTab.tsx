@@ -1,5 +1,7 @@
 "use client";
 
+import { Tooltip } from "@/components/ui/Tooltip";
+
 interface Props {
   active: "CRUISE" | "BATTLE";
   cruiseCount: number;
@@ -16,26 +18,27 @@ export function QueueTab({ active, cruiseCount, battleCount, onChange }: Props) 
   return (
     <div className="flex border-b border-[#1f2a36] shrink-0">
       {tabs.map((tab) => (
-        <button
-          key={tab.key}
-          onClick={() => onChange(tab.key)}
-          className={`flex items-center gap-1.5 px-4 py-2 text-xs font-medium uppercase tracking-[0.06em] border-b-2 -mb-px transition ${
-            active === tab.key
-              ? "border-[#3fa7ff] text-[#3fa7ff]"
-              : "border-transparent text-[#9aa4b2] hover:text-[#e6edf3]"
-          }`}
-        >
-          {tab.label}
-          <span
-            className={`text-[10px] px-1.5 py-0.5 rounded-full font-normal ${
+        <Tooltip key={tab.key} content={`Show ${tab.label.toLowerCase()} queue`} side="bottom">
+          <button
+            onClick={() => onChange(tab.key)}
+            className={`flex items-center gap-1.5 px-4 py-2 text-xs font-medium uppercase tracking-[0.06em] border-b-2 -mb-px transition ${
               active === tab.key
-                ? "bg-[#3fa7ff]/15 text-[#3fa7ff]"
-                : "bg-[#1f2a36] text-[#9aa4b2]"
+                ? "border-[#3fa7ff] text-[#3fa7ff]"
+                : "border-transparent text-[#9aa4b2] hover:text-[#e6edf3]"
             }`}
           >
-            {tab.count}
-          </span>
-        </button>
+            {tab.label}
+            <span
+              className={`text-[10px] px-1.5 py-0.5 rounded-full font-normal ${
+                active === tab.key
+                  ? "bg-[#3fa7ff]/15 text-[#3fa7ff]"
+                  : "bg-[#1f2a36] text-[#9aa4b2]"
+              }`}
+            >
+              {tab.count}
+            </span>
+          </button>
+        </Tooltip>
       ))}
     </div>
   );

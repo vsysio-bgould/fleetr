@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { requireSession, requireFc } from "@/lib/guards";
+import { requireSession } from "@/lib/guards";
 import { QueueService } from "@/services/QueueService";
 import { YouTubeClient } from "@/infra/media/YouTubeClient";
 import { SoundCloudClient } from "@/infra/media/SoundCloudClient";
@@ -19,7 +19,8 @@ export async function GET(
   { params }: { params: { fleetId: string } }
 ) {
   try {
-    const ctx = await requireSession(req, params.fleetId);
+    const { fleetId } = await Promise.resolve(params);
+    const ctx = await requireSession(req, fleetId);
     const { searchParams } = new URL(req.url);
     const queue = (searchParams.get("queue") ?? "CRUISE") as QueueType;
 
@@ -28,7 +29,7 @@ export async function GET(
     }
 
     const service = new QueueService(new YouTubeClient(), new SoundCloudClient());
-    const entries = await service.list(params.fleetId, queue, ctx.characterId);
+    const entries = await service.list(fleetId, queue, ctx.characterId);
     return okList(entries);
   } catch (err) {
     return errorResponse(err);
@@ -40,7 +41,8 @@ export async function POST(
   { params }: { params: { fleetId: string } }
 ) {
   try {
-    const ctx = await requireSession(req, params.fleetId);
+    const { fleetId } = await Promise.resolve(params);
+    const ctx = await requireSession(req, fleetId);
     await rateLimit(req, ctx.characterId, RATE_LIMITS.queueSubmit);
 
     const body = await req.json();
@@ -51,7 +53,7 @@ export async function POST(
 
     const service = new QueueService(new YouTubeClient(), new SoundCloudClient());
     const entry = await service.submit(
-      params.fleetId,
+      fleetId,
       ctx.characterId,
       parsed.data.mediaUrl,
       parsed.data.queue

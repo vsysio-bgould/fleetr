@@ -8,9 +8,10 @@ export async function GET(
   { params }: { params: { fleetId: string } }
 ) {
   try {
+    const { fleetId } = await Promise.resolve(params);
     await requireOperator(req);
     const service = new AdminService();
-    const fleet = await service.getFleet(params.fleetId);
+    const fleet = await service.getFleet(fleetId);
     return ok(fleet);
   } catch (err) {
     return errorResponse(err);

@@ -129,6 +129,12 @@ export const api = {
 
       unvote: (fleetId: string, entryId: string): Promise<void> =>
         request("DELETE", `/api/v1/fleets/${fleetId}/queue/${entryId}/vote`),
+
+      downvote: (fleetId: string, entryId: string): Promise<{ downvotes: number; removed: boolean }> =>
+        request("POST", `/api/v1/fleets/${fleetId}/queue/${entryId}/downvote`),
+
+      removeDownvote: (fleetId: string, entryId: string): Promise<{ downvotes: number }> =>
+        request("DELETE", `/api/v1/fleets/${fleetId}/queue/${entryId}/downvote`),
     },
 
     playback: {
@@ -202,7 +208,10 @@ export interface QueueEntryResponse {
   submittedBy: number;
   position: number;
   votes: number;
+  downvotes: number;
   hasVoted: boolean;
+  hasDownvoted: boolean;
+  removedAt: string | null;
 }
 
 export interface PlaybackStateResponse {

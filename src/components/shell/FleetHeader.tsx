@@ -2,8 +2,6 @@
 
 import { useFleet } from "@/contexts/FleetContext";
 import { ConnectionPill } from "@/components/ConnectionPill";
-import { MuteToggle } from "@/components/player/MuteToggle";
-import { VolumeIndicator } from "@/components/playback/VolumeIndicator";
 
 interface Props {
   fleetName: string;
@@ -37,8 +35,6 @@ export function FleetHeader({ fleetName, fcName }: Props) {
 
       {/* Right: controls */}
       <div className="flex items-center gap-3 shrink-0">
-        <VolumeIndicator />
-        <MuteToggle />
         <div className="text-[11px] text-[#9aa4b2]">
           {memberCount} member{memberCount !== 1 ? "s" : ""}
         </div>

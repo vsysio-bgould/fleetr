@@ -65,6 +65,8 @@ export interface SyncState {
     nowPlaying: FleetNowPlaying | null; // null = no track set yet
     mode: FleetMode;
     volume: number;      // 0–100; FC-controlled fleet-wide volume
+    battleVolumePercent: number;
+    downvoteDeletePercent: number;
     memberCount: number;
     /** Currently connected members, built from the room's connection states. */
     members: MemberSnapshot[];
@@ -82,6 +84,8 @@ export interface QueueEntrySnapshot {
     submittedBy: number;     // characterId
     position: number;
     votes: number;
+    downvotes: number;
+    removedAt: string | null;
 }
 
 export interface MemberSnapshot {
@@ -171,6 +175,9 @@ export type ServerMessage =
      */
     | { type: 'fleet:volume-changed'; volume: number }
 
+    /** Fleet settings changed. Clients apply immediately to controls/player. */
+    | { type: 'fleet:settings-changed'; battleVolumePercent: number; downvoteDeletePercent: number }
+
     // --- Queue (triggered by HTTP mutations via POST /internal/fleets/:id/broadcast) ---
 
     /** A new entry was submitted to the queue. */
@@ -184,6 +191,12 @@ export type ServerMessage =
      * list. voterId/voted let the voter's own client flip its hasVoted flag.
      */
     | { type: 'queue:vote-updated'; queueEntryId: string; votes: number; queue: QueueType; voterId: number; voted: boolean }
+
+    /**
+     * A downvote was cast or removed. Clients update the downvote count in their
+     * local list. voterId/downvoted let the voter's own client flip its flag.
+     */
+    | { type: 'queue:downvote-updated'; queueEntryId: string; downvotes: number; queue: QueueType; voterId: number; downvoted: boolean }
 
     /** An FC reordered an entry. Clients re-sort their local list. */
     | { type: 'queue:reordered'; queueEntryId: string; position: number; queue: QueueType }

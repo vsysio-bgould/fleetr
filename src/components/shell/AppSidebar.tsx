@@ -47,6 +47,15 @@ function GearIcon() {
     </svg>
   );
 }
+function ConfigIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <rect x="3" y="3" width="12" height="12" rx="1.5" />
+      <line x1="6" y1="7" x2="12" y2="7" />
+      <line x1="6" y1="11" x2="10" y2="11" />
+    </svg>
+  );
+}
 
 export function AppSidebar({ fleetId }: Props) {
   const pathname = usePathname();
@@ -55,6 +64,7 @@ export function AppSidebar({ fleetId }: Props) {
     { href: `/fleet/${fleetId}`, label: "Fleet Room", icon: <PlayIcon /> },
     { href: `/fleet/${fleetId}/members`, label: "Members", icon: <UsersIcon /> },
     { href: `/fleet/${fleetId}/queue`, label: "Queue", icon: <ListIcon /> },
+    { href: `/fleet/${fleetId}/configuration`, label: "Fleet Configuration", icon: <ConfigIcon /> },
     { href: `/fleet/${fleetId}/settings`, label: "Settings", icon: <GearIcon /> },
   ];
 

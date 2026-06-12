@@ -13,6 +13,7 @@ export async function POST(
   { params }: { params: { fleetId: string } }
 ) {
   try {
+    const { fleetId } = await Promise.resolve(params);
     if (!requireSecret(req)) {
       return NextResponse.json({ error: { code: "UNAUTHORIZED", message: "Invalid secret" } }, { status: 401 });
     }
@@ -31,19 +32,41 @@ export async function POST(
         { status: 401 }
       );
     }
+    const characterId = apiToken.characterId;
+
+    async function findSession() {
+      return (
+        (await db.session.findUnique({
+          where: {
+            fleetId_characterId: {
+              fleetId,
+              characterId,
+            },
+          },
+          select: { role: true, expiresAt: true },
+        })) ??
+        db.session.findFirst({
+          where: {
+            fleetId,
+            characterId,
+            expiresAt: { gt: new Date() },
+          },
+          select: { role: true, expiresAt: true },
+          orderBy: { createdAt: "desc" },
+        })
+      );
+    }
 
     // Validate fleet session
-    const session = await db.session.findUnique({
-      where: {
-        fleetId_characterId: {
-          fleetId: params.fleetId,
-          characterId: apiToken.characterId,
-        },
-      },
-      select: { role: true, expiresAt: true },
-    });
+    const [session, fleet] = await Promise.all([
+      findSession(),
+      db.fleet.findUnique({
+        where: { id: fleetId },
+        select: { battleVolumePercent: true, downvoteDeletePercent: true },
+      }),
+    ]);
 
-    if (!session || session.expiresAt < new Date()) {
+    if (!session || !fleet || session.expiresAt < new Date()) {
       return NextResponse.json(
         { error: { code: "FORBIDDEN", message: "No active session for this fleet" } },
         { status: 403 }
@@ -51,15 +74,17 @@ export async function POST(
     }
 
     const user = await db.user.findUnique({
-      where: { characterId: apiToken.characterId },
+      where: { characterId },
       select: { characterName: true },
     });
 
     return NextResponse.json({
-      characterId: apiToken.characterId,
+      characterId,
       characterName: user?.characterName ?? "Unknown",
       role: session.role,
-      fleetId: params.fleetId,
+      fleetId,
+      battleVolumePercent: fleet.battleVolumePercent,
+      downvoteDeletePercent: fleet.downvoteDeletePercent,
     });
   } catch (err) {
     return errorResponse(err);

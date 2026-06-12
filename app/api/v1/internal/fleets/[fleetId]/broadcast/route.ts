@@ -7,11 +7,23 @@ function requireSecret(req: NextRequest): boolean {
   return secret === process.env.PARTYKIT_SECRET;
 }
 
+function buildPartyKitHttpUrl(roomId: string): string {
+  const configured =
+    process.env.PARTYKIT_INTERNAL_URL ??
+    process.env.NEXT_PUBLIC_PARTYKIT_HOST ??
+    "localhost:1999";
+  const base = configured.match(/^https?:\/\//)
+    ? configured
+    : `http://${configured}`;
+  return new URL(`/parties/main/${roomId}`, base).toString();
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: { fleetId: string } }
 ) {
   try {
+    const { fleetId } = await Promise.resolve(params);
     if (!requireSecret(req)) {
       return NextResponse.json(
         { error: { code: "UNAUTHORIZED", message: "Invalid secret" } },
@@ -20,12 +32,11 @@ export async function POST(
     }
 
     const message = await req.json();
-    const partyKitHost = process.env.NEXT_PUBLIC_PARTYKIT_HOST!;
     const secret = process.env.PARTYKIT_SECRET!;
 
-    const roomId = `fleet-${params.fleetId}`;
+    const roomId = `fleet-${fleetId}`;
 
-    const res = await fetch(`http://${partyKitHost}/parties/main/${roomId}`, {
+    const res = await fetch(buildPartyKitHttpUrl(roomId), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -36,7 +47,7 @@ export async function POST(
 
     if (!res.ok) {
       logger.warn(
-        { status: res.status, fleetId: params.fleetId },
+        { status: res.status, fleetId },
         "PartyKit broadcast failed"
       );
       return NextResponse.json(

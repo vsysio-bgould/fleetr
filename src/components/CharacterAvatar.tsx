@@ -7,6 +7,7 @@ interface Props {
 
 export function CharacterAvatar({ characterId, characterName, size = 32, className = "" }: Props) {
   return (
+    // eslint-disable-next-line @next/next/no-img-element
     <img
       src={`https://images.evetech.net/characters/${characterId}/portrait?size=${size}`}
       alt={characterName}

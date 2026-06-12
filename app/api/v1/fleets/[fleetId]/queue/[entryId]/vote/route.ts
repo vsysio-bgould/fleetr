@@ -11,10 +11,11 @@ export async function POST(
   { params }: { params: { fleetId: string; entryId: string } }
 ) {
   try {
-    const ctx = await requireSession(req, params.fleetId);
+    const { fleetId, entryId } = await Promise.resolve(params);
+    const ctx = await requireSession(req, fleetId);
     await rateLimit(req, ctx.characterId, RATE_LIMITS.vote);
     const service = new QueueService(new YouTubeClient(), new SoundCloudClient());
-    const votes = await service.vote(params.fleetId, params.entryId, ctx.characterId);
+    const votes = await service.vote(fleetId, entryId, ctx.characterId);
     return created({ votes });
   } catch (err) {
     return errorResponse(err);
@@ -26,9 +27,10 @@ export async function DELETE(
   { params }: { params: { fleetId: string; entryId: string } }
 ) {
   try {
-    const ctx = await requireSession(req, params.fleetId);
+    const { fleetId, entryId } = await Promise.resolve(params);
+    const ctx = await requireSession(req, fleetId);
     const service = new QueueService(new YouTubeClient(), new SoundCloudClient());
-    const votes = await service.unvote(params.fleetId, params.entryId, ctx.characterId);
+    const votes = await service.unvote(fleetId, entryId, ctx.characterId);
     return ok({ votes });
   } catch (err) {
     return errorResponse(err);

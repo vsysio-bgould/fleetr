@@ -7,8 +7,6 @@ import {
 import {
   AlreadyVotedError,
   PlatformMismatchError,
-  NotFoundError,
-  ValidationError,
 } from "@/lib/errors";
 
 vi.mock("@/lib/db", () => ({

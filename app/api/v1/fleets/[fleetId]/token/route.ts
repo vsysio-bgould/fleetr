@@ -9,9 +9,10 @@ export async function POST(
   { params }: { params: { fleetId: string } }
 ) {
   try {
+    const { fleetId } = await Promise.resolve(params);
     const { characterId } = await requireAuth(req);
     const service = new FleetService(new EsiClient());
-    const result = await service.regenerateToken(params.fleetId, characterId);
+    const result = await service.regenerateToken(fleetId, characterId);
     return ok(result);
   } catch (err) {
     return errorResponse(err);

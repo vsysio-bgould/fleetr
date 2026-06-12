@@ -1,6 +1,6 @@
 import type { SelectHTMLAttributes } from "react";
 
-interface Props extends SelectHTMLAttributes<HTMLSelectElement> {}
+type Props = SelectHTMLAttributes<HTMLSelectElement>;
 
 export function FormSelect({ className = "", children, ...props }: Props) {
   return (

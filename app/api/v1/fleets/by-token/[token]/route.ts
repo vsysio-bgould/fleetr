@@ -8,8 +8,9 @@ export async function GET(
   { params }: { params: { token: string } }
 ) {
   try {
+    const { token } = await Promise.resolve(params);
     const fleet = await db.fleet.findFirst({
-      where: { joinToken: params.token, disbandedAt: null },
+      where: { joinToken: token, disbandedAt: null },
       select: { id: true, name: true },
     });
     if (!fleet) throw new NotFoundError("Fleet");

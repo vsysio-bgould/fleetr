@@ -1,4 +1,4 @@
-import type { Job, Worker } from "bullmq";
+import type { Job } from "bullmq";
 
 export interface WorkerDefinition<TPayload = unknown> {
   queueName: string;

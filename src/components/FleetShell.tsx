@@ -13,6 +13,8 @@ interface Props {
   role: SessionRole;
   grantedScopes: string[];
   mediaSource: MediaSource;
+  battleVolumePercent: number;
+  downvoteDeletePercent: number;
   fleetName: string;
   fcName: string;
   partyKitHost: string;
@@ -26,6 +28,8 @@ export function FleetShell({
   role,
   grantedScopes,
   mediaSource,
+  battleVolumePercent,
+  downvoteDeletePercent,
   fleetName,
   fcName,
   partyKitHost,
@@ -39,6 +43,8 @@ export function FleetShell({
       characterId={characterId}
       grantedScopes={grantedScopes}
       mediaSource={mediaSource}
+      battleVolumePercent={battleVolumePercent}
+      downvoteDeletePercent={downvoteDeletePercent}
       partyKitHost={partyKitHost}
       partyKitToken={partyKitToken}
     >

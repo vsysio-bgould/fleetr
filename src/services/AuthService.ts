@@ -2,7 +2,7 @@ import crypto from "crypto";
 import db from "@/lib/db";
 import redis from "@/lib/redis";
 import logger from "@/lib/logger";
-import { UnauthorizedError, NotFoundError } from "@/lib/errors";
+import { UnauthorizedError } from "@/lib/errors";
 import type { IEsiClient } from "@/infra/esi/types";
 import { EsiTokenStore } from "@/infra/esi/EsiTokenStore";
 
@@ -63,7 +63,7 @@ export class AuthService {
     }
     await redis.del(`oauth:state:${stateKey}`);
 
-    const stateData: OAuthState = JSON.parse(raw);
+    void (JSON.parse(raw) as OAuthState);
 
     const tokenResponse = await this.esiClient.exchangeCode(code);
 

@@ -1,10 +1,10 @@
-FROM node:24-alpine
+FROM node:24-bullseye
 WORKDIR /app
-RUN apk add --no-cache libc6-compat
+RUN apt update && apt install openssl
 
 # Install all deps (including devDependencies — tsx, partykit, prisma CLI, etc.)
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN npm install
 
 # Copy source and generate Prisma client
 COPY . .

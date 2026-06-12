@@ -7,7 +7,7 @@ const ESI_BASE = "https://esi.evetech.net/latest";
 const USER_AGENT = "Fleetr/0.1 (contact: your-contact@example.com)";
 
 export interface EsiRequestOptions {
-  method?: "GET" | "POST";
+  method?: "GET" | "POST" | "PUT" | "DELETE";
   body?: unknown;
   accessToken?: string;
   /** Skip ETag caching for this request (e.g. character-scoped endpoints with tokens). */
@@ -112,7 +112,7 @@ export class EsiHttpClient {
       throw new EsiUnavailableError(`ESI error ${response.status}: ${text}`);
     }
 
-    const data = response.status === 404 ? null : await response.json();
+    const data = response.status === 404 || response.status === 204 ? null : await response.json();
     const etag = response.headers.get("ETag") ?? undefined;
     const expires = response.headers.get("Expires") ?? undefined;
 

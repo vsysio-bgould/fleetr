@@ -10,6 +10,7 @@ function requireSecret(req: NextRequest): boolean {
 const bodySchema = z.object({
   mode: z.enum(["CRUISE", "BATTLE"]),
   initiatedBy: z.number().nullable().default(null),
+  broadcast: z.boolean().optional(),
 });
 
 export async function POST(
@@ -17,13 +18,16 @@ export async function POST(
   { params }: { params: { fleetId: string } }
 ) {
   try {
+    const { fleetId } = await Promise.resolve(params);
     if (!requireSecret(req)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     const body = bodySchema.parse(await req.json());
     const service = new PlaybackService();
-    await service.setMode(params.fleetId, body.mode, body.initiatedBy);
-    return new NextResponse(null, { status: 204 });
+    const message = await service.setMode(fleetId, body.mode, body.initiatedBy, {
+      broadcast: body.broadcast,
+    });
+    return NextResponse.json({ data: { message } });
   } catch (err) {
     return errorResponse(err);
   }

@@ -21,5 +21,12 @@ export function createMockEsiClient(): IEsiClient {
     }),
     getLocation: vi.fn().mockResolvedValue({ solarSystemId: 30000142 }),
     getFleetMembers: vi.fn().mockResolvedValue([]),
+    getFleetInfo: vi.fn().mockResolvedValue({
+      isFreeMove: false,
+      isRegistered: false,
+      isVoiceEnabled: true,
+      motd: "Fleet MOTD",
+    }),
+    updateFleetSettings: vi.fn().mockResolvedValue(undefined),
   };
 }

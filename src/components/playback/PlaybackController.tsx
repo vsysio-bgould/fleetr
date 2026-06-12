@@ -5,13 +5,11 @@ import { createPlayer, type MediaSource } from "@/infra/player/createPlayer";
 import type { IEmbedPlayer, PlayerError } from "@/infra/player/IEmbedPlayer";
 import type { FleetMode } from "@prisma/client";
 
-/** Battle mode reduces music volume so comms stay audible (party-messages contract). */
-const BATTLE_VOLUME_MULTIPLIER = 0.25;
-
 interface UsePlaybackControllerOptions {
   mediaId: string | null;
   source: MediaSource;
   volume: number;
+  battleVolumePercent: number;
   muted: boolean;
   mode: FleetMode;
   startedAt: string | null;
@@ -29,6 +27,7 @@ export function usePlaybackController({
   mediaId,
   source,
   volume,
+  battleVolumePercent,
   muted,
   mode,
   startedAt,
@@ -55,21 +54,28 @@ export function usePlaybackController({
 
   // Load new media whenever mediaId changes
   useEffect(() => {
-    if (!mediaId || !playerRef.current) return;
+    if (!playerRef.current) return;
+    if (!mediaId) {
+      playerRef.current.pause();
+      setAdPending(false);
+      setPlayerError(null);
+      return;
+    }
     setPlayerError(null);
     const offset = startedAt
       ? Math.max(0, (Date.now() - new Date(startedAt).getTime()) / 1000)
       : 0;
     playerRef.current.load(mediaId, offset);
-  }, [mediaId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [mediaId, startedAt]);
 
   // Sync effective volume: fleet volume × battle multiplier, respecting local mute
   useEffect(() => {
+    const battleMultiplier = battleVolumePercent / 100;
     const effective = muted
       ? 0
-      : Math.round(volume * (mode === "BATTLE" ? BATTLE_VOLUME_MULTIPLIER : 1));
+      : Math.round(volume * (mode === "BATTLE" ? battleMultiplier : 1));
     playerRef.current?.setVolume(effective);
-  }, [volume, muted, mode]);
+  }, [volume, battleVolumePercent, muted, mode]);
 
   const catchUp = useCallback(() => {
     if (!startedAt || !playerRef.current) return;

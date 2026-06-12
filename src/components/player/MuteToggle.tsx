@@ -1,6 +1,7 @@
 "use client";
 
 import { useFleet } from "@/contexts/FleetContext";
+import { Tooltip } from "@/components/ui/Tooltip";
 
 function SpeakerIcon({ muted }: { muted: boolean }) {
   return (
@@ -22,16 +23,17 @@ export function MuteToggle() {
   const { muted, toggleMute } = useFleet();
 
   return (
-    <button
-      onClick={toggleMute}
-      title={muted ? "Unmute" : "Mute"}
-      className={`w-8 h-8 flex items-center justify-center rounded transition ${
-        muted
-          ? "text-amber-400 bg-amber-400/10 hover:bg-amber-400/20"
-          : "text-[#9aa4b2] hover:bg-[#18212c] hover:text-[#e6edf3]"
-      }`}
-    >
-      <SpeakerIcon muted={muted} />
-    </button>
+    <Tooltip content={muted ? "Unmute local playback" : "Mute local playback"} side="top">
+      <button
+        onClick={toggleMute}
+        className={`w-8 h-8 flex items-center justify-center rounded transition ${
+          muted
+            ? "text-amber-400 bg-amber-400/10 hover:bg-amber-400/20"
+            : "text-[#9aa4b2] hover:bg-[#18212c] hover:text-[#e6edf3]"
+        }`}
+      >
+        <SpeakerIcon muted={muted} />
+      </button>
+    </Tooltip>
   );
 }

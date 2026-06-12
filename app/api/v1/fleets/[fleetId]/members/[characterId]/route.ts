@@ -8,11 +8,12 @@ export async function DELETE(
   { params }: { params: { fleetId: string; characterId: string } }
 ) {
   try {
-    const ctx = await requireSession(req, params.fleetId);
+    const { fleetId, characterId } = await Promise.resolve(params);
+    const ctx = await requireSession(req, fleetId);
     requireFc(ctx);
-    const targetId = parseInt(params.characterId, 10);
+    const targetId = parseInt(characterId, 10);
     const service = new MemberService();
-    await service.kick(params.fleetId, ctx.characterId, targetId);
+    await service.kick(fleetId, ctx.characterId, targetId);
     return noContent();
   } catch (err) {
     return errorResponse(err);

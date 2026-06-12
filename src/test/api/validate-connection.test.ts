@@ -6,7 +6,8 @@ const VALID_SECRET = "test-secret-32-chars-long-enough!";
 vi.mock("@/lib/db", () => ({
   default: {
     apiToken: { findUnique: vi.fn() },
-    session: { findUnique: vi.fn() },
+    session: { findUnique: vi.fn(), findFirst: vi.fn() },
+    fleet: { findUnique: vi.fn() },
     user: { findUnique: vi.fn() },
   },
 }));
@@ -67,6 +68,11 @@ describe("POST /api/v1/internal/fleets/:id/validate-connection", () => {
       expiresAt: new Date(Date.now() + 1000 * 60),
     } as never);
     vi.mocked(db.session.findUnique).mockResolvedValueOnce(null);
+    vi.mocked(db.session.findFirst).mockResolvedValueOnce(null);
+    vi.mocked(db.fleet.findUnique).mockResolvedValueOnce({
+      battleVolumePercent: 25,
+      downvoteDeletePercent: 50,
+    } as never);
 
     const res = await POST(
       makeRequest({ token: "valid-token" }, VALID_SECRET),
@@ -84,6 +90,10 @@ describe("POST /api/v1/internal/fleets/:id/validate-connection", () => {
     vi.mocked(db.session.findUnique).mockResolvedValueOnce({
       role: "FLEET_COMMANDER",
       expiresAt: new Date(Date.now() + 1000 * 60 * 60),
+    } as never);
+    vi.mocked(db.fleet.findUnique).mockResolvedValueOnce({
+      battleVolumePercent: 25,
+      downvoteDeletePercent: 50,
     } as never);
     vi.mocked(db.user.findUnique).mockResolvedValueOnce({
       characterName: "Test Pilot",

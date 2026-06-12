@@ -1,5 +1,6 @@
 import type { IEmbedPlayer, PlayerError } from "./IEmbedPlayer";
 
+/* eslint-disable @typescript-eslint/no-namespace, @typescript-eslint/no-unused-vars */
 declare namespace YT {
   const PlayerState: { PLAYING: number; PAUSED: number; ENDED: number; BUFFERING: number };
   class Player {
@@ -15,6 +16,8 @@ declare namespace YT {
     destroy(): void;
   }
   interface PlayerOptions {
+    width?: string | number;
+    height?: string | number;
     videoId?: string;
     playerVars?: Record<string, number | string>;
     events?: {
@@ -24,6 +27,7 @@ declare namespace YT {
     };
   }
 }
+/* eslint-enable @typescript-eslint/no-namespace, @typescript-eslint/no-unused-vars */
 
 declare global {
   interface Window {
@@ -96,11 +100,13 @@ export class YouTubePlayer implements IEmbedPlayer {
     ensureApiLoaded(() => {
       if (!this.mountDiv) return;
       this.player = new window.YT.Player(this.mountDiv, {
+        width: "100%",
+        height: "100%",
         videoId: mediaId,
         playerVars: {
           autoplay: 1,
           start: Math.floor(offsetSeconds),
-          controls: 0,
+          controls: 1,
           disablekb: 1,
           modestbranding: 1,
           rel: 0,

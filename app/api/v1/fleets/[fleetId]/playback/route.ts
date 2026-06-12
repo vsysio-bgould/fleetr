@@ -8,9 +8,10 @@ export async function GET(
   { params }: { params: { fleetId: string } }
 ) {
   try {
-    await requireSession(req, params.fleetId);
+    const { fleetId } = await Promise.resolve(params);
+    await requireSession(req, fleetId);
     const service = new PlaybackService();
-    const state = await service.getState(params.fleetId);
+    const state = await service.getState(fleetId);
     return ok(state);
   } catch (err) {
     return errorResponse(err);

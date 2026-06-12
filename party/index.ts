@@ -17,6 +17,8 @@ interface ConnectionState {
   characterName: string;
   role: SessionRole;
   fleetId: string;
+  battleVolumePercent: number;
+  downvoteDeletePercent: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -26,12 +28,16 @@ interface ConnectionState {
 interface RoomState {
   mode: "CRUISE" | "BATTLE";
   volume: number;
+  battleVolumePercent: number;
+  downvoteDeletePercent: number;
   nowPlaying: FleetNowPlaying | null;
 }
 
 const DEFAULT_STATE: RoomState = {
   mode: "CRUISE",
   volume: 100,
+  battleVolumePercent: 25,
+  downvoteDeletePercent: 50,
   nowPlaying: null,
 };
 
@@ -49,14 +55,7 @@ export default class FleetServer implements Party.Server {
     const fleetId = this.room.id.replace("fleet-", "");
 
     if (!token) {
-      conn.send(
-        JSON.stringify({
-          type: "error",
-          code: "AUTH_REQUIRED",
-          message: "Token required",
-        } satisfies ServerMessage)
-      );
-      conn.close();
+      this.closeUnauthenticated(conn);
       return;
     }
 
@@ -83,24 +82,20 @@ export default class FleetServer implements Party.Server {
       );
 
       if (!res.ok) {
+        await res.text().catch(() => "");
         throw new Error(`Validation failed: ${res.status}`);
       }
 
       connectionState = await res.json();
     } catch {
-      conn.send(
-        JSON.stringify({
-          type: "error",
-          code: "AUTH_FAILED",
-          message: "Authentication failed",
-        } satisfies ServerMessage)
-      );
-      conn.close();
+      this.closeUnauthenticated(conn);
       return;
     }
 
     // Store connection state
     conn.setState(connectionState);
+    this.state.battleVolumePercent = connectionState.battleVolumePercent;
+    this.state.downvoteDeletePercent = connectionState.downvoteDeletePercent;
 
     // Broadcast member:joined to other connections
     this.room.broadcast(
@@ -132,6 +127,8 @@ export default class FleetServer implements Party.Server {
       nowPlaying: this.state.nowPlaying,
       mode: this.state.mode,
       volume: this.state.volume,
+      battleVolumePercent: this.state.battleVolumePercent,
+      downvoteDeletePercent: this.state.downvoteDeletePercent,
       memberCount: members.length,
       members,
     };
@@ -142,6 +139,14 @@ export default class FleetServer implements Party.Server {
         payload: syncState,
       } satisfies ServerMessage)
     );
+  }
+
+  private closeUnauthenticated(conn: Party.Connection) {
+    try {
+      conn.close(1008, "Authentication failed");
+    } catch {
+      // The browser may already have abandoned the upgrade request.
+    }
   }
 
   onClose(conn: Party.Connection) {
@@ -234,6 +239,9 @@ export default class FleetServer implements Party.Server {
       this.state.nowPlaying = message.nowPlaying;
     } else if (message.type === "fleet:volume-changed") {
       this.state.volume = message.volume;
+    } else if (message.type === "fleet:settings-changed") {
+      this.state.battleVolumePercent = message.battleVolumePercent;
+      this.state.downvoteDeletePercent = message.downvoteDeletePercent;
     } else if (message.type === "fleet:now-playing") {
       this.state.nowPlaying = message.payload;
     }
@@ -260,23 +268,23 @@ export default class FleetServer implements Party.Server {
     switch (message.type) {
       case "fleet:set-track":
         path = "playback";
-        body = { queueEntryId: message.queueEntryId, initiatedBy: state.characterId };
+        body = { queueEntryId: message.queueEntryId, initiatedBy: state.characterId, broadcast: false };
         break;
       case "fleet:advance":
         path = "playback";
-        body = { queueEntryId: null, initiatedBy: state.characterId };
+        body = { queueEntryId: null, initiatedBy: state.characterId, broadcast: false };
         break;
       case "fleet:set-mode":
         path = "mode";
-        body = { mode: message.mode, initiatedBy: state.characterId };
+        body = { mode: message.mode, initiatedBy: state.characterId, broadcast: false };
         break;
       case "fleet:set-volume":
         path = "volume";
-        body = { volume: message.volume };
+        body = { volume: message.volume, broadcast: false };
         break;
     }
 
-    await fetch(`${appUrl}/api/v1/internal/fleets/${fleetId}/${path}`, {
+    const res = await fetch(`${appUrl}/api/v1/internal/fleets/${fleetId}/${path}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -284,5 +292,16 @@ export default class FleetServer implements Party.Server {
       },
       body: JSON.stringify(body),
     }).catch(() => null);
+
+    if (!res?.ok) return;
+
+    const data = await res.json().catch(() => null) as
+      | { data?: { message?: ServerMessage } }
+      | null;
+    const serverMessage = data?.data?.message;
+    if (!serverMessage) return;
+
+    this.applyStateFromBroadcast(serverMessage);
+    this.room.broadcast(JSON.stringify(serverMessage));
   }
 }

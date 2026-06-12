@@ -11,6 +11,7 @@ export async function POST(
   { params }: { params: { fleetId: string } }
 ) {
   try {
+    const { fleetId } = await Promise.resolve(params);
     if (!requireSecret(req)) {
       return NextResponse.json(
         { error: { code: "UNAUTHORIZED", message: "Invalid secret" } },
@@ -19,18 +20,20 @@ export async function POST(
     }
 
     const body = await req.json();
-    const { queueEntryId, initiatedBy } = body;
+    const { queueEntryId, initiatedBy, broadcast } = body;
 
     const service = new PlaybackService();
 
+    let message;
     if (queueEntryId === null || queueEntryId === undefined) {
       // Clear playback reference
-      await service.advance(params.fleetId, initiatedBy);
+      const result = await service.advance(fleetId, initiatedBy, { broadcast });
+      message = result.message;
     } else {
-      await service.setTrack(params.fleetId, queueEntryId, initiatedBy);
+      message = await service.setTrack(fleetId, queueEntryId, initiatedBy, { broadcast });
     }
 
-    return new NextResponse(null, { status: 204 });
+    return NextResponse.json({ data: { message } });
   } catch (err) {
     return errorResponse(err);
   }

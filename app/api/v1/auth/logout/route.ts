@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requireAuth } from "@/lib/auth-middleware";
 import { AuthService } from "@/services/AuthService";
 import { EsiClient } from "@/infra/esi/EsiClient";

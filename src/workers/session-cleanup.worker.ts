@@ -12,6 +12,7 @@ const definition: WorkerDefinition<SessionCleanupPayload> = {
   concurrency: 1,
 
   async process(job: Job<SessionCleanupPayload>) {
+    void job;
     const now = new Date();
 
     const result = await db.session.deleteMany({

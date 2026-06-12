@@ -14,6 +14,13 @@ export interface EsiCharacter {
   corporationId: number;
 }
 
+export interface EsiFleetInfo {
+  isFreeMove: boolean;
+  isRegistered: boolean;
+  isVoiceEnabled: boolean;
+  motd: string;
+}
+
 export interface EsiTokenResponse {
   accessToken: string;
   refreshToken: string;
@@ -38,4 +45,10 @@ export interface IEsiClient {
     esiFleetId: string,
     accessToken: string
   ): Promise<Array<{ character_id: number; role: string }>>;
+  getFleetInfo(esiFleetId: string, accessToken: string): Promise<EsiFleetInfo>;
+  updateFleetSettings(
+    esiFleetId: string,
+    accessToken: string,
+    settings: { motd: string; isFreeMove: boolean }
+  ): Promise<void>;
 }

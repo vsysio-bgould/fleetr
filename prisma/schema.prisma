@@ -58,6 +58,7 @@ model User {
     queueEntries         QueueEntry[]         @relation("QueueEntrySubmitter")
     removedEntries       QueueEntry[]         @relation("QueueEntryRemover")
     votes                Vote[]
+    downvotes            QueueDownvote[]
     esiToken             EsiToken?
     apiTokens            ApiToken[]
     advisoryDismissals   AdvisoryDismissal[]
@@ -140,6 +141,8 @@ model Fleet {
     joinToken     String      @unique
     mode          FleetMode   @default(CRUISE)
     mediaSource   MediaSource @default(YOUTUBE)
+    battleVolumePercent    Int @default(25)
+    downvoteDeletePercent  Int @default(50)
     fcCharacterId Int
 
     expiresAt   DateTime?
@@ -239,6 +242,7 @@ model QueueEntry {
     submitter User       @relation("QueueEntrySubmitter", fields: [submittedBy], references: [characterId])
     remover   User?      @relation("QueueEntryRemover", fields: [removedBy], references: [characterId])
     votes     Vote[]
+    downvotes QueueDownvote[]
     playback  Playback[]
 
     @@index([fleetId, queue, removedAt, position])
@@ -248,6 +252,22 @@ model QueueEntry {
 /// A single upvote cast by a character on a queue entry.
 /// One vote per character per entry — enforced by unique constraint.
 model Vote {
+    id           String   @id @default(uuid())
+    queueEntryId String
+    characterId  Int
+    createdAt    DateTime @default(now())
+
+    entry     QueueEntry @relation(fields: [queueEntryId], references: [id])
+    character User       @relation(fields: [characterId], references: [characterId])
+
+    @@unique([queueEntryId, characterId])
+    @@index([queueEntryId])
+}
+
+/// A single downvote cast by a character on a queue entry.
+/// One downvote per character per entry. If enough active viewers downvote,
+/// the entry is soft-deleted into the deleted tracks section.
+model QueueDownvote {
     id           String   @id @default(uuid())
     queueEntryId String
     characterId  Int

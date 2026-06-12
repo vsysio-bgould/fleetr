@@ -18,7 +18,7 @@ const definition: WorkerDefinition<QueueAdvancePayload> = {
     // When the FC manually advances, we cancel the old job and create a new one
     // with the same deterministic ID. If somehow both run, the second will find
     // the playback state already updated and exit without side effects.
-    const expectedJobId = `fleet-advance:${fleetId}`;
+    const expectedJobId = `fleet-advance-${fleetId}`;
     if (job.id !== expectedJobId) {
       logger.warn(
         { jobId: job.id, expectedJobId, fleetId },

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useFleet } from "@/contexts/FleetContext";
+import { Tooltip } from "@/components/ui/Tooltip";
 
 interface Props {
   defaultQueue?: "CRUISE" | "BATTLE";
@@ -26,7 +27,7 @@ export function SubmitMediaForm({ defaultQueue = "CRUISE" }: Props) {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setError(data.error ?? "Failed to submit");
+        setError(data.error?.message ?? "Failed to submit");
         return;
       }
       setUrl("");
@@ -42,16 +43,18 @@ export function SubmitMediaForm({ defaultQueue = "CRUISE" }: Props) {
           type="url"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
-          placeholder="YouTube or SoundCloud URL…"
+          placeholder="YouTube or SoundCloud URL..."
           className="flex-1 bg-[#0b0f14] border border-[#253140] text-[#e6edf3] text-sm rounded px-3 py-2 placeholder:text-[#4a5568] focus:outline-none focus:border-[#3fa7ff]"
         />
-        <button
-          type="submit"
-          disabled={pending || !url.trim()}
-          className="px-3 py-2 bg-[#3fa7ff] hover:bg-[#5ab8ff] disabled:opacity-50 text-[#0b0f14] text-sm font-semibold rounded transition-colors"
-        >
-          {pending ? "…" : "Add"}
-        </button>
+        <Tooltip content={`Add this track to the ${defaultQueue.toLowerCase()} queue`} side="top">
+          <button
+            type="submit"
+            disabled={pending || !url.trim()}
+            className="px-3 py-2 bg-[#3fa7ff] hover:bg-[#5ab8ff] disabled:opacity-50 text-[#0b0f14] text-sm font-semibold rounded transition-colors"
+          >
+            {pending ? "..." : "Add"}
+          </button>
+        </Tooltip>
       </div>
       {error && <p className="text-red-400 text-xs">{error}</p>}
     </form>

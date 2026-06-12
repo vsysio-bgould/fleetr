@@ -3,6 +3,7 @@
 import { useFleet, type MemberSnapshot } from "@/contexts/FleetContext";
 import { CharacterAvatar } from "@/components/CharacterAvatar";
 import { StatusBadge, type BadgeState } from "@/components/ui/StatusBadge";
+import { Tooltip } from "@/components/ui/Tooltip";
 
 function roleToBadgeState(role: MemberSnapshot["role"]): BadgeState {
   switch (role) {
@@ -38,9 +39,16 @@ export function MemberRoster({ className = "" }: Props) {
 
   const handleDelegate = async (target: MemberSnapshot) => {
     const isDelegate = target.role === "FC_DELEGATE";
-    await fetch(`/api/v1/fleets/${fleetId}/delegates/${target.characterId}`, {
-      method: isDelegate ? "DELETE" : "POST",
-    });
+    await fetch(
+      isDelegate
+        ? `/api/v1/fleets/${fleetId}/delegates/${target.characterId}`
+        : `/api/v1/fleets/${fleetId}/delegates`,
+      {
+        method: isDelegate ? "DELETE" : "POST",
+        headers: isDelegate ? undefined : { "Content-Type": "application/json" },
+        body: isDelegate ? undefined : JSON.stringify({ characterId: target.characterId }),
+      }
+    );
   };
 
   if (members.length === 0) {
@@ -84,18 +92,22 @@ export function MemberRoster({ className = "" }: Props) {
 
           {isFc && member.characterId !== myCharacterId && myRole === "FLEET_COMMANDER" && (
             <div className="flex gap-1 shrink-0">
-              <button
-                onClick={() => handleDelegate(member)}
-                className="text-xs px-2 py-1 rounded border border-[#1f2a36] text-[#9aa4b2] hover:text-[#e6edf3] hover:border-[#3fa7ff] transition-colors"
-              >
-                {member.role === "FC_DELEGATE" ? "Undelegate" : "Delegate"}
-              </button>
-              <button
-                onClick={() => handleKick(member)}
-                className="text-xs px-2 py-1 rounded border border-red-800 text-red-400 hover:bg-red-900/20 transition-colors"
-              >
-                Kick
-              </button>
+              <Tooltip content={member.role === "FC_DELEGATE" ? "Remove fleet control delegation" : "Delegate fleet control"} side="top">
+                <button
+                  onClick={() => handleDelegate(member)}
+                  className="text-xs px-2 py-1 rounded border border-[#1f2a36] text-[#9aa4b2] hover:text-[#e6edf3] hover:border-[#3fa7ff] transition-colors"
+                >
+                  {member.role === "FC_DELEGATE" ? "Undelegate" : "Delegate"}
+                </button>
+              </Tooltip>
+              <Tooltip content="Kick this member from Fleetr" side="top">
+                <button
+                  onClick={() => handleKick(member)}
+                  className="text-xs px-2 py-1 rounded border border-red-800 text-red-400 hover:bg-red-900/20 transition-colors"
+                >
+                  Kick
+                </button>
+              </Tooltip>
             </div>
           )}
         </div>

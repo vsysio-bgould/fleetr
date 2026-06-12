@@ -10,6 +10,7 @@ export async function POST(
   { params }: { params: { fleetId: string } }
 ) {
   try {
+    const { fleetId } = await Promise.resolve(params);
     const { characterId } = await requireAuth(req);
 
     const esiToken = await db.esiToken.findUnique({
@@ -22,7 +23,7 @@ export async function POST(
     // We need the join token, not fleetId, to look up the fleet.
     // The POST body can provide it, or the client resolves it from a join URL.
     const body = await req.json().catch(() => ({}));
-    const joinToken = body.joinToken ?? params.fleetId;
+    const joinToken = body.joinToken ?? fleetId;
 
     const result = await service.join(
       joinToken,
@@ -42,9 +43,10 @@ export async function DELETE(
   { params }: { params: { fleetId: string } }
 ) {
   try {
+    const { fleetId } = await Promise.resolve(params);
     const { characterId } = await requireAuth(req);
     const service = new FleetJoinService(new EsiClient());
-    await service.leave(params.fleetId, characterId);
+    await service.leave(fleetId, characterId);
     return noContent();
   } catch (err) {
     return errorResponse(err);

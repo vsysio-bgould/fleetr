@@ -1,25 +1,16 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
+import Image from "next/image";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export default function LoginPage() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const returnUrl = searchParams.get("returnUrl") ?? "/";
 
-  const handleLogin = async () => {
-    const res = await fetch("/api/v1/auth/begin", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        scopes: [
-          "esi-fleets.read_fleet.v1",
-          "esi-location.read_location.v1",
-        ],
-        returnUrl,
-      }),
-    });
-    const { redirectUrl } = await res.json();
-    window.location.href = redirectUrl;
+  const handleLogin = () => {
+    const params = new URLSearchParams({ returnUrl });
+    router.push(`/auth/scopes?${params.toString()}`);
   };
 
   return (
@@ -34,9 +25,11 @@ export default function LoginPage() {
           onClick={handleLogin}
           className="w-full bg-fleet-accent hover:opacity-90 text-white font-semibold py-3 px-6 rounded-md transition-opacity flex items-center justify-center gap-2"
         >
-          <img
+          <Image
             src="https://web.ccpgamescdn.com/eveonlineassets/developers/eve-sso-login-white-small.png"
             alt="Log in with EVE Online"
+            width={195}
+            height={30}
             className="h-5"
           />
         </button>

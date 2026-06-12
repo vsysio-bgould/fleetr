@@ -1,4 +1,4 @@
-import { z, type ZodSchema } from "zod";
+import type { ZodSchema } from "zod";
 import { ValidationError } from "@/lib/errors";
 import type { NextRequest } from "next/server";
 

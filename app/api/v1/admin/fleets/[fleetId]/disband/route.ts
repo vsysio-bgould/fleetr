@@ -14,9 +14,10 @@ export async function POST(
   { params }: { params: { fleetId: string } }
 ) {
   try {
+    const { fleetId } = await Promise.resolve(params);
     const auth = await requireOperator(req);
     const service = new AdminService();
-    await service.forceDisband(params.fleetId, auth.characterId);
+    await service.forceDisband(fleetId, auth.characterId);
     return noContent();
   } catch (err) {
     return errorResponse(err);

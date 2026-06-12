@@ -8,8 +8,9 @@ export async function DELETE(
   { params }: { params: { characterId: string } }
 ) {
   try {
+    const { characterId } = await Promise.resolve(params);
     const auth = await requireOperator(req);
-    const targetId = parseInt(params.characterId, 10);
+    const targetId = parseInt(characterId, 10);
     const service = new AdminService();
     await service.revokeOperator(targetId, auth.characterId);
     return noContent();

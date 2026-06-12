@@ -1,1 +1,4 @@
-npx lint-staged
+#!/usr/bin/env sh
+set -e
+
+node node_modules/lint-staged/bin/lint-staged.js

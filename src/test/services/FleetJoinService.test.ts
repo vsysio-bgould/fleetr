@@ -7,8 +7,6 @@ import {
   NotInFleetError,
 } from "@/lib/errors";
 
-const FUTURE_DATE = new Date(Date.now() + 1000 * 60 * 60 * 24);
-
 vi.mock("@/lib/db", () => ({
   default: {
     fleet: {

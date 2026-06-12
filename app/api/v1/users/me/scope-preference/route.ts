@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { requireAuth } from "@/lib/auth-middleware";
 import { UserService } from "@/services/UserService";
-import { ok, noContent, errorResponse } from "@/lib/api-response";
+import { noContent, errorResponse } from "@/lib/api-response";
 import { ValidationError } from "@/lib/errors";
 
 const bodySchema = z.object({

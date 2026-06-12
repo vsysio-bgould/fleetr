@@ -2,6 +2,7 @@
 
 import { AppSidebar } from "./AppSidebar";
 import { FleetHeader } from "./FleetHeader";
+import { PlayerPanel } from "@/components/player/PlayerPanel";
 
 interface Props {
   fleetId: string;
@@ -21,9 +22,14 @@ export function AppShell({ fleetId, fleetName, fcName, children }: Props) {
       <FleetHeader fleetName={fleetName} fcName={fcName} />
       <div className="flex flex-1 min-h-0">
         <AppSidebar fleetId={fleetId} />
-        <main className="flex-1 flex flex-col min-w-0 p-4 gap-4 overflow-auto">
-          {children}
-        </main>
+        <div className="flex-1 flex flex-col min-w-0">
+          <div className="h-40 shrink-0 border-b border-fleet-border bg-fleet-surface p-4">
+            <PlayerPanel variant="bar" />
+          </div>
+          <main className="flex-1 flex flex-col min-w-0 p-4 gap-4 overflow-auto">
+            {children}
+          </main>
+        </div>
       </div>
     </div>
   );

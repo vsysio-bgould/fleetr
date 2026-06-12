@@ -1,14 +1,14 @@
 # Fleetr
 
-Real-time fleet music for EVE Online. The FC sets the queue; the fleet listens.
+Real-time fleet music for EVE Online. The FC sets up the room, the fleet joins and votes on what media to listen to.
 
 ---
 
 ## What is Fleetr?
 
-Fleetr is a web app built for EVE Online fleet operations. Fleet commanders create a room, share a join link, and their fleet gets a shared media queue — submitted by members, ordered by votes, and managed by the FC. Each member runs their own independent player, so non-premium YouTube users won't have their track cut off by someone else advancing the queue.
+Fleetr is a web app built for EVE Online fleet operations. Fleet commanders create a room, share a join link, and their fleet gets a shared media queue — submitted by members and ordered by votes. Each member runs their own independent player, so non-premium YouTube users won't have their track cut off by someone else advancing the queue.
 
-When a battle kicks off, the FC switches to Battle Mode. Every player interrupts and jumps to the battle queue.
+When a battle kicks off, the FC switches to Battle Mode. Every player interrupts, jumps to the battle queue and drops the volume by an amount specified by the FC (which also includes silent). 
 
 ---
 

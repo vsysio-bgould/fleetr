@@ -2,6 +2,7 @@ import { decodeJwt } from "jose";
 import { EsiHttpClient } from "@/infra/esi/EsiHttpClient";
 import type {
   EsiCharacter,
+  EsiFleetInfo,
   EsiFleetMembership,
   EsiTokenResponse,
   IEsiClient,
@@ -152,5 +153,40 @@ export class EsiClient implements IEsiClient {
     >(`/fleets/${esiFleetId}/members/`, { accessToken, noCache: true });
 
     return result.data ?? [];
+  }
+
+  async getFleetInfo(
+    esiFleetId: string,
+    accessToken: string
+  ): Promise<EsiFleetInfo> {
+    const result = await this.http.request<{
+      is_free_move: boolean;
+      is_registered: boolean;
+      is_voice_enabled: boolean;
+      motd: string;
+    }>(`/fleets/${esiFleetId}/`, { accessToken, noCache: true });
+
+    return {
+      isFreeMove: result.data.is_free_move,
+      isRegistered: result.data.is_registered,
+      isVoiceEnabled: result.data.is_voice_enabled,
+      motd: result.data.motd,
+    };
+  }
+
+  async updateFleetSettings(
+    esiFleetId: string,
+    accessToken: string,
+    settings: { motd: string; isFreeMove: boolean }
+  ): Promise<void> {
+    await this.http.request<null>(`/fleets/${esiFleetId}/`, {
+      method: "PUT",
+      accessToken,
+      noCache: true,
+      body: {
+        motd: settings.motd,
+        is_free_move: settings.isFreeMove,
+      },
+    });
   }
 }

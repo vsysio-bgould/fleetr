@@ -1,15 +1,16 @@
 import pino from "pino";
+import pretty from "pino-pretty";
+
+const stream = pretty({
+    levelFirst: true,
+    colorize: true,
+    ignore: "time,hostname,pid"
+});
 
 const logger = pino({
-  level: process.env.LOG_LEVEL ?? "info",
-  ...(process.env.NODE_ENV === "development"
-    ? {
-        transport: {
-          target: "pino-pretty",
-          options: { colorize: true },
-        },
-      }
-    : {}),
-});
+  level: 'info'
+},
+    stream
+);
 
 export default logger;

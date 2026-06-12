@@ -10,9 +10,10 @@ export async function GET(
   { params }: { params: { fleetId: string } }
 ) {
   try {
-    await requireSession(req, params.fleetId);
+    const { fleetId } = await Promise.resolve(params);
+    await requireSession(req, fleetId);
     const service = new FleetService(new EsiClient());
-    const fleet = await service.getById(params.fleetId);
+    const fleet = await service.getById(fleetId);
     return ok(fleet);
   } catch (err) {
     return errorResponse(err);
@@ -24,9 +25,10 @@ export async function DELETE(
   { params }: { params: { fleetId: string } }
 ) {
   try {
+    const { fleetId } = await Promise.resolve(params);
     const { characterId } = await requireAuth(req);
     const service = new FleetService(new EsiClient());
-    await service.disband(params.fleetId, characterId);
+    await service.disband(fleetId, characterId);
     return noContent();
   } catch (err) {
     return errorResponse(err);

@@ -10,6 +10,7 @@ export async function POST(
   { params }: { params: { token: string } }
 ) {
   try {
+    const { token } = await Promise.resolve(params);
     const { characterId } = await requireAuth(req);
 
     const esiToken = await db.esiToken.findUnique({
@@ -19,7 +20,7 @@ export async function POST(
 
     const service = new FleetJoinService(new EsiClient());
     const result = await service.join(
-      params.token,
+      token,
       characterId,
       esiToken?.accessToken ?? null,
       (esiToken?.scopes as string[]) ?? []
