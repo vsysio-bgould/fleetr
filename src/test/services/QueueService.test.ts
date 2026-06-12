@@ -14,6 +14,10 @@ vi.mock("@/lib/db", () => ({
     fleet: {
       findUnique: vi.fn(),
     },
+    playback: {
+      findUnique: vi.fn().mockResolvedValue({ queueEntryId: "current-entry" }),
+      upsert: vi.fn().mockResolvedValue({}),
+    },
     queueEntry: {
       findFirst: vi.fn().mockResolvedValue(null),
       findUnique: vi.fn(),
@@ -35,6 +39,13 @@ vi.mock("@/lib/db", () => ({
 
 vi.mock("@/lib/broadcast", () => ({ broadcastToFleet: vi.fn().mockResolvedValue(undefined) }));
 
+vi.mock("@/lib/queue", () => ({
+  queueAdvanceQueue: {
+    add: vi.fn().mockResolvedValue({ id: "job-1" }),
+    getJob: vi.fn().mockResolvedValue(null),
+  },
+}));
+
 describe("QueueService", () => {
   let service: QueueService;
   let ytClient: ReturnType<typeof createMockYouTubeClient>;
@@ -49,6 +60,7 @@ describe("QueueService", () => {
     const db = (await import("@/lib/db")).default;
     vi.mocked(db.fleet.findUnique).mockResolvedValue({
       mediaSource: "YOUTUBE",
+      mode: "CRUISE",
     } as never);
     vi.mocked(db.queueEntry.create).mockResolvedValue({
       id: "entry-uuid",
@@ -62,6 +74,8 @@ describe("QueueService", () => {
       submittedBy: 12345,
       position: 1.0,
       votes: [],
+      downvotes: [],
+      removedAt: null,
     } as never);
   });
 
@@ -135,6 +149,40 @@ describe("QueueService", () => {
         expect.objectContaining({
           data: expect.objectContaining({ position: 1.0 }),
         })
+      );
+    });
+
+    it("sets playback when the active queue was empty and nothing is playing", async () => {
+      const db = (await import("@/lib/db")).default;
+      const { broadcastToFleet } = await import("@/lib/broadcast");
+
+      vi.mocked(db.queueEntry.findFirst).mockResolvedValueOnce(null);
+      vi.mocked(db.playback.findUnique).mockResolvedValueOnce(null);
+      vi.mocked(db.queueEntry.findUnique).mockResolvedValueOnce({
+        id: "entry-uuid",
+        mediaId: "dQw4w9WgXcQ",
+        title: "Never Gonna Give You Up",
+        thumbnailUrl: null,
+        duration: 212,
+        fleetId: "fleet-uuid",
+      } as never);
+
+      await service.submit(
+        "fleet-uuid",
+        12345,
+        "https://youtube.com/watch?v=dQw4w9WgXcQ",
+        "CRUISE"
+      );
+
+      expect(db.playback.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { fleetId: "fleet-uuid" },
+          update: expect.objectContaining({ queueEntryId: "entry-uuid" }),
+        })
+      );
+      expect(broadcastToFleet).toHaveBeenCalledWith(
+        "fleet-uuid",
+        expect.objectContaining({ type: "fleet:now-playing" })
       );
     });
   });

@@ -16,6 +16,14 @@ export type { MemberSnapshot, FleetNowPlaying };
 /** Queue entry as held client-side: the broadcast snapshot plus this client's vote flags. */
 export type QueueEntry = QueueEntrySnapshot & { hasVoted: boolean; hasDownvoted: boolean };
 
+export interface FleetEvent {
+  id: string;
+  at: string;
+  title: string;
+  detail?: string;
+  tone?: "info" | "success" | "warning" | "danger";
+}
+
 interface FleetState {
   members: Record<number, MemberSnapshot>;
   queue: QueueEntry[];
@@ -25,6 +33,7 @@ interface FleetState {
   battleVolumePercent: number;
   downvoteDeletePercent: number;
   locations: Record<number, string | null>; // characterId -> solarSystem name
+  events: FleetEvent[];
 }
 
 /**
@@ -43,7 +52,7 @@ function reducer(state: FleetState, action: FleetAction): FleetState {
     case "sync:state": {
       const members: Record<number, MemberSnapshot> = {};
       for (const m of action.payload.members) members[m.characterId] = m;
-      return {
+      return withEvent({
         ...state,
         members,
         nowPlaying: action.payload.nowPlaying ?? state.nowPlaying,
@@ -51,25 +60,36 @@ function reducer(state: FleetState, action: FleetAction): FleetState {
         volume: action.payload.volume,
         battleVolumePercent: action.payload.battleVolumePercent,
         downvoteDeletePercent: action.payload.downvoteDeletePercent,
-      };
+      }, event("Connected", `${action.payload.memberCount} member${action.payload.memberCount === 1 ? "" : "s"} online`, "success"));
     }
 
     case "fleet:now-playing":
-      return { ...state, nowPlaying: action.payload };
+      return withEvent(
+        { ...state, nowPlaying: action.payload },
+        action.payload
+          ? event("Now playing", action.payload.title, "info")
+          : event("Playback stopped", "Queue exhausted", "warning")
+      );
 
     case "fleet:mode-changed":
       // Mandatory interrupt: the new reference track arrives with the mode.
-      return { ...state, mode: action.mode, nowPlaying: action.nowPlaying };
+      return withEvent(
+        { ...state, mode: action.mode, nowPlaying: action.nowPlaying },
+        event("Mode switched", `MODE: ${action.mode}`, "warning")
+      );
 
     case "fleet:volume-changed":
-      return { ...state, volume: action.volume };
+      return withEvent(
+        { ...state, volume: action.volume },
+        event("Volume changed", `${action.volume}%`, "info")
+      );
 
     case "fleet:settings-changed":
-      return {
+      return withEvent({
         ...state,
         battleVolumePercent: action.battleVolumePercent,
         downvoteDeletePercent: action.downvoteDeletePercent,
-      };
+      }, event("Settings updated", `Battle volume ${action.battleVolumePercent}%, downvote delete ${action.downvoteDeletePercent}%`, "info"));
 
     case "local:queue-loaded":
       return {
@@ -88,21 +108,27 @@ function reducer(state: FleetState, action: FleetAction): FleetState {
       };
 
     case "queue:entry-added":
-      return {
+      return withEvent({
         ...state,
         queue: mergeQueueEntries(state.queue, [{ ...action.payload, hasVoted: false, hasDownvoted: false }]),
-      };
+      }, event("Track added", action.payload.title, "success"));
 
-    case "queue:entry-removed":
-      return {
+    case "queue:entry-removed": {
+      const removedEntry = state.queue.find((e) => e.id === action.queueEntryId);
+      return withEvent({
         ...state,
         queue: state.queue.map((e) =>
           e.id === action.queueEntryId ? { ...e, removedAt: new Date().toISOString() } : e
         ),
-      };
+      }, event(
+        action.reason === "DOWNVOTE" ? "Track vote-deleted" : "Track deleted",
+        removedEntry?.title ?? action.queueEntryId,
+        action.reason === "DOWNVOTE" ? "danger" : "warning"
+      ));
+    }
 
     case "queue:vote-updated":
-      return {
+      return withEvent({
         ...state,
         queue: state.queue.map((e) =>
           e.id === action.queueEntryId
@@ -113,10 +139,10 @@ function reducer(state: FleetState, action: FleetAction): FleetState {
               }
             : e
         ),
-      };
+      }, event("Vote updated", `${action.votes} upvote${action.votes === 1 ? "" : "s"}`, "info"));
 
     case "queue:downvote-updated":
-      return {
+      return withEvent({
         ...state,
         queue: state.queue.map((e) =>
           e.id === action.queueEntryId
@@ -129,39 +155,43 @@ function reducer(state: FleetState, action: FleetAction): FleetState {
               }
             : e
         ),
-      };
+      }, event("Downvote updated", `${action.downvotes} downvote${action.downvotes === 1 ? "" : "s"}`, "warning"));
 
     case "queue:reordered":
-      return {
+      return withEvent({
         ...state,
         queue: state.queue.map((e) =>
           e.id === action.queueEntryId ? { ...e, position: action.position } : e
         ),
-      };
+      }, event("Queue reordered", `Position ${action.position}`, "info"));
 
     case "member:joined":
-      return {
+      return withEvent({
         ...state,
         members: { ...state.members, [action.payload.characterId]: action.payload },
-      };
+      }, event("Member joined", action.payload.characterName, "success"));
 
     case "member:left":
     case "member:kicked": {
+      const leavingMember = state.members[action.characterId];
       const members = { ...state.members };
       delete members[action.characterId];
-      return { ...state, members };
+      return withEvent(
+        { ...state, members },
+        event(action.type === "member:kicked" ? "Member kicked" : "Member left", leavingMember?.characterName ?? `Character ${action.characterId}`, action.type === "member:kicked" ? "danger" : "info")
+      );
     }
 
     case "member:role-changed": {
       const existing = state.members[action.characterId];
       if (!existing) return state;
-      return {
+      return withEvent({
         ...state,
         members: {
           ...state.members,
           [action.characterId]: { ...existing, role: action.role },
         },
-      };
+      }, event("Role changed", `${existing.characterName}: ${action.role}`, "info"));
     }
 
     case "member:location-updated": {
@@ -169,6 +199,9 @@ function reducer(state: FleetState, action: FleetAction): FleetState {
       for (const u of action.updates) locations[u.characterId] = u.solarSystem;
       return { ...state, locations };
     }
+
+    case "error":
+      return withEvent(state, event("Fleet error", action.message, "danger"));
 
     default:
       return state;
@@ -189,6 +222,29 @@ function mergeQueueEntries(current: QueueEntry[], incoming: QueueEntry[]): Queue
   return Array.from(byId.values());
 }
 
+const MAX_EVENTS = 80;
+
+function event(
+  title: string,
+  detail?: string,
+  tone: FleetEvent["tone"] = "info"
+): FleetEvent {
+  return {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    at: new Date().toISOString(),
+    title,
+    detail,
+    tone,
+  };
+}
+
+function withEvent(state: FleetState, nextEvent: FleetEvent): FleetState {
+  return {
+    ...state,
+    events: [nextEvent, ...state.events].slice(0, MAX_EVENTS),
+  };
+}
+
 const initialState: FleetState = {
   members: {},
   queue: [],
@@ -198,6 +254,7 @@ const initialState: FleetState = {
   battleVolumePercent: 25,
   downvoteDeletePercent: 50,
   locations: {},
+  events: [],
 };
 
 interface FleetContextValue {

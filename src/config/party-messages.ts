@@ -183,8 +183,8 @@ export type ServerMessage =
     /** A new entry was submitted to the queue. */
     | { type: 'queue:entry-added'; payload: QueueEntrySnapshot }
 
-    /** An entry was soft-deleted by an FC. Clients remove it from their local list. */
-    | { type: 'queue:entry-removed'; queueEntryId: string; queue: QueueType }
+    /** An entry was soft-deleted by an FC or by the downvote threshold. */
+    | { type: 'queue:entry-removed'; queueEntryId: string; queue: QueueType; reason?: 'FC' | 'DOWNVOTE' }
 
     /**
      * A vote was cast or removed. Clients update the vote count in their local

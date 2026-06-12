@@ -11,6 +11,7 @@ import type { MediaSource, QueueType } from "@prisma/client";
 import { broadcastToFleet } from "@/lib/broadcast";
 import type { ServerMessage } from "@/config/party-messages";
 import logger from "@/lib/logger";
+import { PlaybackService } from "@/services/PlaybackService";
 
 export interface QueueEntryRow {
   id: string;
@@ -70,7 +71,7 @@ export class QueueService {
   ): Promise<QueueEntryRow> {
     const fleet = await db.fleet.findUnique({
       where: { id: fleetId },
-      select: { mediaSource: true },
+      select: { mediaSource: true, mode: true },
     });
     if (!fleet) throw new NotFoundError("Fleet");
 
@@ -86,6 +87,13 @@ export class QueueService {
       select: { position: true },
     });
     const position = (last?.position ?? 0) + 1.0;
+    const playback = !last
+      ? await db.playback.findUnique({
+        where: { fleetId },
+        select: { queueEntryId: true },
+      })
+      : null;
+    const shouldAutoStart = !last && queue === fleet.mode && !playback?.queueEntryId;
 
     const entry = await db.queueEntry.create({
       data: {
@@ -123,6 +131,15 @@ export class QueueService {
       },
     } satisfies ServerMessage);
 
+    if (shouldAutoStart) {
+      await new PlaybackService().setTrack(fleetId, entry.id, characterId).catch((error) => {
+        logger.warn(
+          { fleetId, entryId: entry.id, error },
+          "Failed to auto-start first queued track"
+        );
+      });
+    }
+
     return { ...entry, votes: 0, downvotes: 0, hasVoted: false, hasDownvoted: false };
   }
 
@@ -152,6 +169,7 @@ export class QueueService {
       type: "queue:entry-removed",
       queueEntryId: entryId,
       queue: entry.queue,
+      reason: "FC",
     } satisfies ServerMessage);
   }
 
@@ -358,6 +376,7 @@ export class QueueService {
         type: "queue:entry-removed",
         queueEntryId: entryId,
         queue: entry.queue,
+        reason: "DOWNVOTE",
       } satisfies ServerMessage);
     }
 

@@ -20,6 +20,7 @@ function makeJob(data: object, id: string): Job {
 describe("queue-advance worker", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.unstubAllEnvs();
     vi.stubEnv("APP_URL", "http://localhost:3000");
     vi.stubEnv("PARTYKIT_SECRET", "test-secret");
   });
@@ -67,6 +68,29 @@ describe("queue-advance worker", () => {
         method: "POST",
         body: JSON.stringify({ queueEntryId: "next-entry", initiatedBy: null }),
       })
+    );
+  });
+
+  it("prefers the internal PartyKit app URL when present", async () => {
+    const db = (await import("@/lib/db")).default;
+    vi.stubEnv("PARTYKIT_APP_URL", "http://app:3000");
+    vi.mocked(db.fleet.findUnique).mockResolvedValueOnce({
+      mode: "CRUISE",
+      disbandedAt: null,
+    } as never);
+    vi.mocked(db.playback.findUnique).mockResolvedValueOnce({
+      queueEntryId: "current-entry",
+    } as never);
+    vi.mocked(db.queueEntry.findFirst).mockResolvedValueOnce({
+      id: "next-entry",
+    } as never);
+
+    const job = makeJob({ fleetId: "fleet-uuid" }, "fleet-advance-fleet-uuid");
+    await workerDef.process(job);
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      "http://app:3000/api/v1/internal/fleets/fleet-uuid/playback",
+      expect.any(Object)
     );
   });
 

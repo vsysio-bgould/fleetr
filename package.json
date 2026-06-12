@@ -13,7 +13,8 @@
     "test:coverage": "node node_modules/vitest/vitest.mjs run --coverage",
     "typecheck": "node node_modules/typescript/bin/tsc --noEmit",
     "db:seed": "tsx prisma/seed.ts",
-    "prepare": "node node_modules/husky/bin.js || exit 0"
+    "prepare": "node node_modules/husky/bin.js || exit 0",
+    "partykit": "node node_modules/partykit/dist/bin.mjs"
   },
   "lint-staged": {
     "*.{ts,tsx}": [

@@ -3,6 +3,7 @@
 import { AppSidebar } from "./AppSidebar";
 import { FleetHeader } from "./FleetHeader";
 import { PlayerPanel } from "@/components/player/PlayerPanel";
+import { EventFeed } from "@/components/EventFeed";
 
 interface Props {
   fleetId: string;
@@ -31,6 +32,7 @@ export function AppShell({ fleetId, fleetName, fcName, children }: Props) {
           </main>
         </div>
       </div>
+      <EventFeed />
     </div>
   );
 }

@@ -57,12 +57,16 @@ const definition: WorkerDefinition<QueueAdvancePayload> = {
       orderBy: [{ position: "asc" }],
     });
 
-    const appUrl = process.env.APP_URL ?? "http://localhost:3000";
+    const appUrl =
+      process.env.PARTYKIT_APP_URL ??
+      process.env.INTERNAL_APP_URL ??
+      process.env.APP_URL ??
+      "http://localhost:3000";
     const secret = process.env.PARTYKIT_SECRET ?? "";
 
     if (!nextEntry) {
       // Queue exhausted — clear reference and notify clients
-      await fetch(`${appUrl}/api/v1/internal/fleets/${fleetId}/playback`, {
+      const response = await fetch(`${appUrl}/api/v1/internal/fleets/${fleetId}/playback`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -73,13 +77,16 @@ const definition: WorkerDefinition<QueueAdvancePayload> = {
           initiatedBy: null,
         }),
       });
+      if (!response.ok) {
+        throw new Error(`Internal playback clear failed with ${response.status}`);
+      }
 
       logger.info({ fleetId }, "Queue exhausted after auto-advance");
       return;
     }
 
     // Advance to the next entry via internal API (which handles scheduling next job)
-    await fetch(`${appUrl}/api/v1/internal/fleets/${fleetId}/playback`, {
+    const response = await fetch(`${appUrl}/api/v1/internal/fleets/${fleetId}/playback`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -90,6 +97,9 @@ const definition: WorkerDefinition<QueueAdvancePayload> = {
         initiatedBy: null, // null = auto-advance
       }),
     });
+    if (!response.ok) {
+      throw new Error(`Internal playback advance failed with ${response.status}`);
+    }
 
     logger.info(
       { fleetId, nextEntryId: nextEntry.id },
