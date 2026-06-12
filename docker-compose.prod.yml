@@ -7,7 +7,7 @@ services:
       - "3000:3000"
     environment:
       NODE_ENV: production
-      DATABASE_URL: mysql://${MYSQL_USER}:${MYSQL_PASSWORD}@db:3306/fleetr
+      DATABASE_URL: mysql://${MYSQL_USER:-fleetr}:${MYSQL_PASSWORD:-fleetr}@db:3306/fleetr
       REDIS_URL: ${REDIS_URL}
       APP_URL: ${APP_URL}
       COOKIE_SECRET: ${COOKIE_SECRET}
@@ -34,7 +34,7 @@ services:
       dockerfile: Dockerfile.worker
     environment:
       NODE_ENV: production
-      DATABASE_URL: mysql://${MYSQL_USER}:${MYSQL_PASSWORD}@db:3306/fleetr
+      DATABASE_URL: mysql://${MYSQL_USER:-fleetr}:${MYSQL_PASSWORD:-fleetr}@db:3306/fleetr
       REDIS_URL: ${REDIS_URL}
       APP_URL: ${APP_URL}
       ESI_CLIENT_ID: ${ESI_CLIENT_ID}
@@ -53,14 +53,14 @@ services:
   db:
     image: mysql:8.0
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
       MYSQL_DATABASE: fleetr
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_USER: ${MYSQL_USER:-fleetr}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-fleetr}
     volumes:
       - db_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-root}"]
       interval: 10s
       timeout: 5s
       retries: 5
