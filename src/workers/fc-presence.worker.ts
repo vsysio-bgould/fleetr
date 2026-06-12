@@ -5,6 +5,7 @@ import { EsiClient } from "@/infra/esi/EsiClient";
 import { EsiErrorBudget } from "@/infra/esi/EsiErrorBudget";
 import { EsiTokenStore } from "@/infra/esi/EsiTokenStore";
 import { broadcastToFleet } from "@/lib/broadcast";
+import { bullMqJobId } from "@/lib/bullmq";
 import logger from "@/lib/logger";
 
 interface FcPresencePayload {
@@ -40,7 +41,7 @@ const definition: WorkerDefinition<FcPresencePayload> = {
       });
       await Promise.all(
         fleets.map((f) =>
-          fcPresenceQueue.add("check", { fleetId: f.id }, { jobId: `fc-presence-${f.id}` })
+          fcPresenceQueue.add("check", { fleetId: f.id }, { jobId: bullMqJobId("fc-presence", f.id) })
         )
       );
       logger.debug({ count: fleets.length }, "fc-presence: scan queued checks");

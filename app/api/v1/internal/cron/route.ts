@@ -6,6 +6,7 @@ import {
   fcPresenceQueue,
 } from "@/lib/queue";
 import db from "@/lib/db";
+import { bullMqJobId } from "@/lib/bullmq";
 
 function requireSecret(req: NextRequest): boolean {
   return req.headers.get("X-Cron-Secret") === process.env.CRON_SECRET;
@@ -40,7 +41,7 @@ export async function POST(req: NextRequest) {
           esiTokenRefreshQueue.add(
             "refresh",
             { characterId: t.characterId },
-            { jobId: `esi-refresh-${t.characterId}` }
+            { jobId: bullMqJobId("esi-refresh", t.characterId) }
           )
         )
       );
@@ -61,7 +62,7 @@ export async function POST(req: NextRequest) {
           fcPresenceQueue.add(
             "check",
             { fleetId: f.id },
-            { jobId: `fc-presence-${f.id}` }
+            { jobId: bullMqJobId("fc-presence", f.id) }
           )
         )
       );

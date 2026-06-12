@@ -1,6 +1,7 @@
 import type { Job } from "bullmq";
 import type { WorkerDefinition } from "@/workers/types";
 import db from "@/lib/db";
+import { bullMqJobId } from "@/lib/bullmq";
 import logger from "@/lib/logger";
 
 interface EsiTokenRefreshPayload {
@@ -28,7 +29,7 @@ const definition: WorkerDefinition<EsiTokenRefreshPayload> = {
           esiTokenRefreshQueue.add(
             "refresh",
             { characterId: t.characterId },
-            { jobId: `esi-refresh-${t.characterId}` }
+            { jobId: bullMqJobId("esi-refresh", t.characterId) }
           )
         )
       );
