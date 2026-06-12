@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 
-export default function FleetCreatedPage() {
+function FleetCreatedPage() {
   const params = useParams<{ fleetId: string }>();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -59,5 +59,13 @@ export default function FleetCreatedPage() {
         </button>
       </div>
     </div>
+  );
+}
+
+export default function FleetCreatedPageWrapper() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-fleet-bg" />}>
+      <FleetCreatedPage />
+    </Suspense>
   );
 }

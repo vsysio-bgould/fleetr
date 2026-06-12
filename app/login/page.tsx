@@ -1,9 +1,10 @@
 "use client";
 
+import { Suspense } from "react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 
-export default function LoginPage() {
+function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const returnUrl = searchParams.get("returnUrl") ?? "/";
@@ -40,5 +41,19 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function LoginPageWrapper() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-fleet-bg flex items-center justify-center">
+          <div className="text-fleet-text-muted text-sm">Loading…</div>
+        </div>
+      }
+    >
+      <LoginPage />
+    </Suspense>
   );
 }
