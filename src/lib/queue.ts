@@ -32,3 +32,8 @@ export const locationSyncQueue = new Queue("location-sync", {
   connection,
   defaultJobOptions: { removeOnComplete: true, removeOnFail: 10 },
 });
+
+export const fcPresenceQueue = new Queue("fc-presence", {
+  connection,
+  defaultJobOptions: { removeOnComplete: true, removeOnFail: 10 },
+});

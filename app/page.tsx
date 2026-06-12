@@ -4,7 +4,12 @@ import db from "@/lib/db";
 import Link from "next/link";
 import { LogoutButton } from "@/components/LogoutButton";
 
-export default async function HomePage() {
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ disbanded?: string }>;
+}) {
+  const { disbanded } = await searchParams;
   const cookieStore = await cookies();
   const token = cookieStore.get("fleetr_token")?.value;
 
@@ -34,6 +39,11 @@ export default async function HomePage() {
   return (
     <div className="min-h-screen bg-fleet-bg flex items-center justify-center p-4">
       <div className="bg-fleet-surface border border-fleet-border rounded-lg p-8 w-full max-w-sm flex flex-col gap-6 text-center">
+        {disbanded && (
+          <div className="rounded border border-amber-700/50 bg-amber-900/20 px-3 py-2 text-xs text-amber-300">
+            Your fleet has ended — the FC left the EVE fleet. Create a new one below.
+          </div>
+        )}
         <div>
           <h1 className="text-2xl font-bold text-fleet-text">FLEETR</h1>
           <p className="text-fleet-text-muted text-sm mt-2">

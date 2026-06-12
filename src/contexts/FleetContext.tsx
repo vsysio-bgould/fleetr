@@ -359,6 +359,11 @@ export function FleetProvider({
             return;
           }
 
+          if (msg.type === "fleet:disbanded") {
+            window.location.href = "/?disbanded=1";
+            return;
+          }
+
           if (msg.type === "queue:vote-updated" && msg.voterId === characterId) {
             dispatch({ ...msg, selfVote: msg.voted });
             return;

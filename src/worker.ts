@@ -20,6 +20,7 @@ async function loadWorkers() {
     import("@/workers/session-cleanup.worker"),
     import("@/workers/esi-token-refresh.worker"),
     import("@/workers/location-sync.worker"),
+    import("@/workers/fc-presence.worker"),
   ]);
   for (const mod of modules) {
     definitions.push(mod.default as WorkerDefinition<unknown>);
@@ -61,6 +62,9 @@ async function start() {
   }
 
   logger.info({ count: workers.length }, "All workers started");
+
+  const { registerRepeatableJobs } = await import("@/lib/scheduler");
+  await registerRepeatableJobs();
 
   const shutdown = async (signal: string) => {
     logger.info({ signal }, "Shutting down workers...");

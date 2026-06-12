@@ -229,6 +229,13 @@ export type ServerMessage =
      */
     | { type: 'member:location-updated'; updates: Array<{ characterId: number; solarSystem: string | null }> }
 
+    /**
+     * Broadcast by the fc-presence worker when the FC is no longer in the
+     * EVE fleet backing this Fleetr fleet. The fleet has been disbanded
+     * server-side; clients should leave and offer to create a new fleet.
+     */
+    | { type: 'fleet:disbanded' }
+
     // --- Errors ---
 
     /**

@@ -4,7 +4,8 @@ import db from "@/lib/db";
 import logger from "@/lib/logger";
 
 interface EsiTokenRefreshPayload {
-  characterId: number;
+  /** Specific character to refresh; omit to scan for expiring tokens. */
+  characterId?: number;
 }
 
 const definition: WorkerDefinition<EsiTokenRefreshPayload> = {
@@ -13,6 +14,27 @@ const definition: WorkerDefinition<EsiTokenRefreshPayload> = {
 
   async process(job: Job<EsiTokenRefreshPayload>) {
     const { characterId } = job.data;
+
+    // Scan mode: fan out a refresh job per token expiring within 10 minutes.
+    if (!characterId) {
+      const { esiTokenRefreshQueue } = await import("@/lib/queue");
+      const soon = new Date(Date.now() + 10 * 60 * 1000);
+      const tokens = await db.esiToken.findMany({
+        where: { accessTokenExpiresAt: { lt: soon } },
+        select: { characterId: true },
+      });
+      await Promise.all(
+        tokens.map((t) =>
+          esiTokenRefreshQueue.add(
+            "refresh",
+            { characterId: t.characterId },
+            { jobId: `esi-refresh:${t.characterId}` }
+          )
+        )
+      );
+      logger.debug({ count: tokens.length }, "esi-token-refresh: scan queued refreshes");
+      return;
+    }
 
     const esiToken = await db.esiToken.findUnique({
       where: { characterId },

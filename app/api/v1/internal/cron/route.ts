@@ -3,6 +3,7 @@ import {
   fleetCleanupQueue,
   sessionCleanupQueue,
   esiTokenRefreshQueue,
+  fcPresenceQueue,
 } from "@/lib/queue";
 import db from "@/lib/db";
 
@@ -44,6 +45,27 @@ export async function POST(req: NextRequest) {
         )
       );
       return NextResponse.json({ queued: tokens.length });
+    }
+
+    case "fc-presence": {
+      // Queue a presence check for every active fleet
+      const fleets = await db.fleet.findMany({
+        where: {
+          disbandedAt: null,
+          OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+        },
+        select: { id: true },
+      });
+      await Promise.all(
+        fleets.map((f) =>
+          fcPresenceQueue.add(
+            "check",
+            { fleetId: f.id },
+            { jobId: `fc-presence:${f.id}` }
+          )
+        )
+      );
+      return NextResponse.json({ queued: fleets.length });
     }
 
     default:
