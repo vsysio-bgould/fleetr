@@ -96,11 +96,11 @@ function LineMemberShell({ fleetName, fcName }: { fleetName: string; fcName: str
         </div>
       </header>
 
-      <div className="flex flex-1 min-h-0 gap-4 p-4">
-        <div className="flex-1 min-w-0">
+      <div className="flex flex-1 min-h-0 gap-4 p-4 overflow-hidden">
+        <div className="flex-1 min-w-0 min-h-0 overflow-hidden">
           <PlayerPanel />
         </div>
-        <div className="w-[30rem] max-w-[45%] shrink-0 rounded border border-[#1f2a36] bg-[#121821]/80 backdrop-blur-sm overflow-hidden flex flex-col">
+        <div className="w-[30rem] max-w-[45%] shrink-0 min-h-0 rounded border border-[#1f2a36] bg-[#121821]/80 backdrop-blur-sm overflow-hidden flex flex-col">
           <QueuePanel />
         </div>
       </div>

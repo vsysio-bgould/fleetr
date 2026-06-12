@@ -84,7 +84,7 @@ export function PlayerPanel({ variant = "panel" }: Props) {
   }
 
   return (
-    <div className="flex flex-col gap-2 h-full">
+    <div className="flex flex-col gap-2 h-full min-h-0 overflow-hidden">
       {adPending && <AdPendingBanner mode={mode} />}
 
       {playerError && (
@@ -93,11 +93,10 @@ export function PlayerPanel({ variant = "panel" }: Props) {
         </div>
       )}
 
-      {/* 16:9 embed container */}
-      <div className="relative w-full" style={{ paddingTop: "56.25%" }}>
+      <div className="relative flex-1 min-h-0 flex items-center justify-start overflow-hidden rounded bg-black">
         <div
           ref={containerRef}
-          className="absolute inset-0 rounded overflow-hidden bg-black"
+          className="relative h-full w-full overflow-hidden bg-black [&>iframe]:h-full [&>iframe]:w-full [&>iframe]:border-0"
         />
         {!nowPlaying && (
           <div className="absolute inset-0 flex items-center justify-center text-[#4a5568] text-sm">
@@ -106,8 +105,7 @@ export function PlayerPanel({ variant = "panel" }: Props) {
         )}
       </div>
 
-      {/* Controls strip */}
-      <div className="flex items-center justify-between gap-3 px-1">
+      <div className="flex items-center justify-between gap-3 px-1 shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           {nowPlaying ? (
             <span className="text-sm font-medium text-[#e6edf3] truncate">{nowPlaying.title}</span>
