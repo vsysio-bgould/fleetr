@@ -32,6 +32,7 @@ export interface EsiTokenResponse {
 
 export interface IEsiClient {
   exchangeCode(code: string): Promise<EsiTokenResponse>;
+  refreshAccessToken(refreshToken: string): Promise<EsiTokenResponse>;
   getFleetMembership(
     characterId: number,
     accessToken: string

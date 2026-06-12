@@ -164,8 +164,18 @@ export class QueueService {
       where: { id: entryId },
       select: { fleetId: true, removedAt: true, queue: true },
     });
-    if (!entry || entry.fleetId !== fleetId) throw new NotFoundError("Queue entry");
-    if (entry.removedAt) throw new NotFoundError("Queue entry");
+    if (!entry) {
+      logger.warn({ fleetId, entryId, characterId }, "vote: entry not found in db");
+      throw new NotFoundError("Queue entry");
+    }
+    if (entry.fleetId !== fleetId) {
+      logger.warn({ fleetId, entryId, entryFleetId: entry.fleetId, characterId }, "vote: fleet ID mismatch");
+      throw new NotFoundError("Queue entry");
+    }
+    if (entry.removedAt) {
+      logger.warn({ fleetId, entryId, removedAt: entry.removedAt, characterId }, "vote: entry is removed");
+      throw new NotFoundError("Queue entry");
+    }
 
     const existing = await db.vote.findUnique({
       where: { queueEntryId_characterId: { queueEntryId: entryId, characterId } },
@@ -205,7 +215,14 @@ export class QueueService {
       where: { id: entryId },
       select: { fleetId: true, queue: true },
     });
-    if (!entry || entry.fleetId !== fleetId) throw new NotFoundError("Queue entry");
+    if (!entry) {
+      logger.warn({ fleetId, entryId, characterId }, "unvote: entry not found in db");
+      throw new NotFoundError("Queue entry");
+    }
+    if (entry.fleetId !== fleetId) {
+      logger.warn({ fleetId, entryId, entryFleetId: entry.fleetId, characterId }, "unvote: fleet ID mismatch");
+      throw new NotFoundError("Queue entry");
+    }
 
     await db.vote
       .delete({
@@ -279,8 +296,18 @@ export class QueueService {
       where: { id: entryId },
       select: { fleetId: true, removedAt: true, queue: true },
     });
-    if (!entry || entry.fleetId !== fleetId) throw new NotFoundError("Queue entry");
-    if (entry.removedAt) throw new NotFoundError("Queue entry");
+    if (!entry) {
+      logger.warn({ fleetId, entryId, characterId }, "downvote: entry not found in db");
+      throw new NotFoundError("Queue entry");
+    }
+    if (entry.fleetId !== fleetId) {
+      logger.warn({ fleetId, entryId, entryFleetId: entry.fleetId, characterId }, "downvote: fleet ID mismatch");
+      throw new NotFoundError("Queue entry");
+    }
+    if (entry.removedAt) {
+      logger.warn({ fleetId, entryId, removedAt: entry.removedAt, characterId }, "downvote: entry is removed");
+      throw new NotFoundError("Queue entry");
+    }
 
     await db.queueDownvote
       .create({ data: { queueEntryId: entryId, characterId } })
@@ -346,8 +373,18 @@ export class QueueService {
       where: { id: entryId },
       select: { fleetId: true, queue: true, removedAt: true },
     });
-    if (!entry || entry.fleetId !== fleetId) throw new NotFoundError("Queue entry");
-    if (entry.removedAt) throw new NotFoundError("Queue entry");
+    if (!entry) {
+      logger.warn({ fleetId, entryId, characterId }, "removeDownvote: entry not found in db");
+      throw new NotFoundError("Queue entry");
+    }
+    if (entry.fleetId !== fleetId) {
+      logger.warn({ fleetId, entryId, entryFleetId: entry.fleetId, characterId }, "removeDownvote: fleet ID mismatch");
+      throw new NotFoundError("Queue entry");
+    }
+    if (entry.removedAt) {
+      logger.warn({ fleetId, entryId, removedAt: entry.removedAt, characterId }, "removeDownvote: entry is removed");
+      throw new NotFoundError("Queue entry");
+    }
 
     await db.queueDownvote
       .delete({

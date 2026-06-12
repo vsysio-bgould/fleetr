@@ -101,7 +101,7 @@ export default function FleetConfigurationPage() {
               </div>
               {config.motd ? (
                 <div
-                  className="min-h-40 rounded border border-fleet-border bg-[#0f141a] p-4 text-sm text-fleet-text overflow-auto"
+                  className="min-h-40 rounded border border-fleet-border bg-[#0f141a] p-4 text-sm text-fleet-text overflow-auto [&_*]:!text-sm [&_*]:leading-snug"
                   dangerouslySetInnerHTML={{ __html: config.motd }}
                 />
               ) : (

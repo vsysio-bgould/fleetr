@@ -48,7 +48,7 @@ export class FleetConfigurationService {
   }
 
   private async getFcToken(characterId: number) {
-    const token = await this.tokenStore.get(characterId);
+    const token = await this.tokenStore.getOrRefresh(characterId, this.esiClient);
     if (!token) throw new NotFoundError("FC ESI token");
     return token;
   }

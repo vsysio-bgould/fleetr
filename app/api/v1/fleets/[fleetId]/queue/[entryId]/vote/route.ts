@@ -5,6 +5,7 @@ import { YouTubeClient } from "@/infra/media/YouTubeClient";
 import { SoundCloudClient } from "@/infra/media/SoundCloudClient";
 import { ok, created, errorResponse } from "@/lib/api-response";
 import { rateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import logger from "@/lib/logger";
 
 export async function POST(
   req: NextRequest,
@@ -18,6 +19,8 @@ export async function POST(
     const votes = await service.vote(fleetId, entryId, ctx.characterId);
     return created({ votes });
   } catch (err) {
+    const { fleetId, entryId } = await Promise.resolve(params).catch(() => ({ fleetId: "?", entryId: "?" }));
+    logger.warn({ err, fleetId, entryId, route: "POST vote" }, "vote route error");
     return errorResponse(err);
   }
 }
@@ -33,6 +36,8 @@ export async function DELETE(
     const votes = await service.unvote(fleetId, entryId, ctx.characterId);
     return ok({ votes });
   } catch (err) {
+    const { fleetId, entryId } = await Promise.resolve(params).catch(() => ({ fleetId: "?", entryId: "?" }));
+    logger.warn({ err, fleetId, entryId, route: "DELETE vote" }, "vote route error");
     return errorResponse(err);
   }
 }

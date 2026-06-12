@@ -92,6 +92,59 @@ export class EsiClient implements IEsiClient {
     };
   }
 
+  async refreshAccessToken(refreshToken: string): Promise<EsiTokenResponse> {
+    const credentials = Buffer.from(
+      `${this.clientId}:${this.clientSecret}`
+    ).toString("base64");
+
+    let response: Response;
+    try {
+      response = await fetch(ESI_SSO_TOKEN_URL, {
+        method: "POST",
+        headers: {
+          Authorization: `Basic ${credentials}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+          Host: "login.eveonline.com",
+        },
+        body: new URLSearchParams({
+          grant_type: "refresh_token",
+          refresh_token: refreshToken,
+        }),
+      });
+    } catch (err) {
+      logger.error({ err }, "ESI token refresh network error");
+      throw new EsiUnavailableError("ESI SSO token refresh failed");
+    }
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      logger.warn({ status: response.status, body: text }, "ESI token refresh failed");
+      throw new EsiUnavailableError(`ESI SSO token refresh returned ${response.status}`);
+    }
+
+    const body = await response.json();
+    const claims = decodeJwt(body.access_token as string);
+    const subject = (claims.sub as string) ?? "";
+    const characterIdStr = subject.split(":").at(-1) ?? "";
+    const characterId = parseInt(characterIdStr, 10);
+
+    if (!characterId || isNaN(characterId)) {
+      throw new EsiUnavailableError("Could not extract character ID from refreshed ESI token");
+    }
+
+    const scopes = (claims.scp as string | string[] | undefined) ?? [];
+    const scopeArray = Array.isArray(scopes) ? scopes : [scopes];
+
+    return {
+      accessToken: body.access_token as string,
+      refreshToken: body.refresh_token as string,
+      expiresIn: body.expires_in as number,
+      scopes: scopeArray,
+      characterId,
+      characterName: (claims.name as string) ?? "",
+    };
+  }
+
   async getFleetMembership(
     characterId: number,
     accessToken: string

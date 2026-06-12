@@ -11,6 +11,14 @@ export function createMockEsiClient(): IEsiClient {
       characterId: 12345,
       characterName: "Test Pilot",
     }),
+    refreshAccessToken: vi.fn().mockResolvedValue({
+      accessToken: "mock-refreshed-access-token",
+      refreshToken: "mock-refreshed-refresh-token",
+      expiresIn: 1199,
+      scopes: ["esi-fleets.read_fleet.v1"],
+      characterId: 12345,
+      characterName: "Test Pilot",
+    }),
     getFleetMembership: vi.fn().mockResolvedValue({
       fleetId: "fleet-123",
       role: "fleet_commander",
