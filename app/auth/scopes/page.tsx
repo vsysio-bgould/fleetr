@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 
 interface ScopeInfo {
@@ -16,7 +16,7 @@ interface ScopeSelectionData {
   preference: string[] | null;
 }
 
-export default function ScopeSelectionPage() {
+function ScopeSelectionPage() {
   const searchParams = useSearchParams();
   const returnUrl = searchParams.get("returnUrl") ?? "/";
 
@@ -138,5 +138,19 @@ export default function ScopeSelectionPage() {
         </button>
       </div>
     </div>
+  );
+}
+
+export default function ScopeSelectionPageWrapper() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-fleet-bg flex items-center justify-center">
+          <div className="text-fleet-text-muted text-sm">Loading…</div>
+        </div>
+      }
+    >
+      <ScopeSelectionPage />
+    </Suspense>
   );
 }
