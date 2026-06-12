@@ -4,7 +4,7 @@ import { requireSession, requireFc } from "@/lib/guards";
 import { QueueService } from "@/services/QueueService";
 import { YouTubeClient } from "@/infra/media/YouTubeClient";
 import { SoundCloudClient } from "@/infra/media/SoundCloudClient";
-import { ok, created, errorResponse } from "@/lib/api-response";
+import { okList, created, errorResponse } from "@/lib/api-response";
 import { ValidationError } from "@/lib/errors";
 import { rateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import type { QueueType } from "@prisma/client";
@@ -29,7 +29,7 @@ export async function GET(
 
     const service = new QueueService(new YouTubeClient(), new SoundCloudClient());
     const entries = await service.list(params.fleetId, queue, ctx.characterId);
-    return ok(entries);
+    return okList(entries);
   } catch (err) {
     return errorResponse(err);
   }

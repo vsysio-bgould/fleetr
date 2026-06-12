@@ -54,7 +54,7 @@ describe("FleetService", () => {
 
       const db = (await import("@/lib/db")).default;
       expect(db.fleet.create).toHaveBeenCalledOnce();
-      expect(fleet.id).toBe("fleet-uuid");
+      expect(fleet.fleetId).toBe("fleet-uuid");
     });
 
     it("throws NotInFleetError when character is not in a fleet", async () => {

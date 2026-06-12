@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { requireAuth } from "@/lib/auth-middleware";
+import { requireSession } from "@/lib/guards";
 import { FleetService } from "@/services/FleetService";
 import { EsiClient } from "@/infra/esi/EsiClient";
 import { ok, noContent, errorResponse } from "@/lib/api-response";
@@ -9,7 +10,7 @@ export async function GET(
   { params }: { params: { fleetId: string } }
 ) {
   try {
-    await requireAuth(req);
+    await requireSession(req, params.fleetId);
     const service = new FleetService(new EsiClient());
     const fleet = await service.getById(params.fleetId);
     return ok(fleet);

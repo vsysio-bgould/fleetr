@@ -16,14 +16,22 @@ const FC_ROLES: ReadonlySet<string> = new Set([
   "squad_commander",
 ]);
 
-export interface FleetInfo {
+/** Returned when creating a fleet — includes the join token for the FC. */
+export interface FleetCreated {
+  fleetId: string;
+  joinToken: string;
+  joinUrl: string;
+}
+
+/** Returned from GET /fleets/:id — omits the join token, includes member count. */
+export interface FleetDetails {
   id: string;
   esiFleetId: string;
   name: string;
-  joinToken: string;
   mode: string;
   mediaSource: string;
   fcCharacterId: number;
+  memberCount: number;
   expiresAt: Date | null;
   disbandedAt: Date | null;
   createdAt: Date;
@@ -36,7 +44,7 @@ export class FleetService {
     fcCharacterId: number,
     accessToken: string,
     mediaSource: MediaSource = "YOUTUBE"
-  ): Promise<FleetInfo> {
+  ): Promise<FleetCreated> {
     const membership = await this.esiClient.getFleetMembership(
       fcCharacterId,
       accessToken
@@ -91,13 +99,23 @@ export class FleetService {
       "Fleet created"
     );
 
-    return fleet;
+    const appUrl = process.env.APP_URL ?? "https://fleetr.app";
+    return {
+      fleetId: fleet.id,
+      joinToken,
+      joinUrl: `${appUrl}/join/${joinToken}`,
+    };
   }
 
-  async getById(fleetId: string): Promise<FleetInfo> {
-    const fleet = await db.fleet.findUnique({ where: { id: fleetId } });
+  async getById(fleetId: string): Promise<FleetDetails> {
+    const fleet = await db.fleet.findUnique({
+      where: { id: fleetId },
+      include: { _count: { select: { sessions: true } } },
+    });
     if (!fleet) throw new NotFoundError("Fleet");
-    return fleet;
+
+    const { joinToken: _omit, _count, ...rest } = fleet;
+    return { ...rest, memberCount: _count.sessions };
   }
 
   async disband(fleetId: string, characterId: number): Promise<void> {
@@ -125,7 +143,7 @@ export class FleetService {
   async regenerateToken(
     fleetId: string,
     characterId: number
-  ): Promise<{ joinToken: string }> {
+  ): Promise<{ joinToken: string; joinUrl: string }> {
     const fleet = await db.fleet.findUnique({
       where: { id: fleetId },
       select: { fcCharacterId: true },
@@ -141,7 +159,8 @@ export class FleetService {
     const joinToken = generateJoinToken();
     await db.fleet.update({ where: { id: fleetId }, data: { joinToken } });
 
-    return { joinToken };
+    const appUrl = process.env.APP_URL ?? "https://fleetr.app";
+    return { joinToken, joinUrl: `${appUrl}/join/${joinToken}` };
   }
 }
 

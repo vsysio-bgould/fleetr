@@ -20,12 +20,13 @@ export default function FleetCreatePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mediaSource }),
       });
-      const data = await res.json();
+      const body = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "Failed to create fleet");
+        setError(body.error?.message ?? "Failed to create fleet");
         return;
       }
-      router.push(`/fleet/${data.id}/created`);
+      const { fleetId, joinUrl } = body.data;
+      router.push(`/fleet/${fleetId}/created?joinUrl=${encodeURIComponent(joinUrl)}`);
     } catch {
       setError("Network error — please try again");
     } finally {

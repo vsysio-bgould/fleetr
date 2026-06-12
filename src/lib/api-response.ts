@@ -18,6 +18,21 @@ export function ok<T>(data: T, status = 200): NextResponse<ApiSuccessResponse<T>
   return NextResponse.json({ data }, { status });
 }
 
+export function okList<T>(
+  items: T[],
+  total?: number,
+  offset = 0,
+  limit?: number
+): NextResponse<ApiSuccessResponse<T[]>> {
+  const count = total ?? items.length;
+  const pageSize = limit ?? items.length;
+  const res = NextResponse.json({ data: items } as ApiSuccessResponse<T[]>, { status: 200 });
+  res.headers.set("X-Total-Count", String(count));
+  res.headers.set("X-Offset", String(offset));
+  res.headers.set("X-Limit", String(pageSize));
+  return res;
+}
+
 export function created<T>(data: T): NextResponse<ApiSuccessResponse<T>> {
   return ok(data, 201);
 }

@@ -69,7 +69,7 @@ export const api = {
   // ---------------------------------------------------------------------------
 
   fleets: {
-    create: (body: { mediaSource: "YOUTUBE" | "SOUNDCLOUD" }): Promise<{ fleetId: string; joinToken: string }> =>
+    create: (body: { mediaSource: "YOUTUBE" | "SOUNDCLOUD" }): Promise<{ fleetId: string; joinToken: string; joinUrl: string }> =>
       request("POST", "/api/v1/fleets", body),
 
     getByToken: (token: string): Promise<{ fleetId: string; name: string; fcName: string }> =>
@@ -84,7 +84,7 @@ export const api = {
     leave: (fleetId: string): Promise<void> =>
       request("DELETE", `/api/v1/fleets/${fleetId}/join`),
 
-    regenerateToken: (fleetId: string): Promise<{ joinToken: string }> =>
+    regenerateToken: (fleetId: string): Promise<{ joinToken: string; joinUrl: string }> =>
       request("POST", `/api/v1/fleets/${fleetId}/token`),
 
     members: {

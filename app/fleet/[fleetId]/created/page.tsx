@@ -1,30 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter, useParams } from "next/navigation";
-
-interface FleetData {
-  id: string;
-  name: string;
-  joinToken: string;
-}
+import { useState } from "react";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 
 export default function FleetCreatedPage() {
   const params = useParams<{ fleetId: string }>();
+  const searchParams = useSearchParams();
   const router = useRouter();
-  const [fleet, setFleet] = useState<FleetData | null>(null);
   const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
-    fetch(`/api/v1/fleets/${params.fleetId}`)
-      .then((r) => r.json())
-      .then(setFleet)
-      .catch(console.error);
-  }, [params.fleetId]);
-
-  const joinUrl = fleet
-    ? `${window.location.origin}/join/${fleet.joinToken}`
-    : "";
+  const joinUrl = searchParams.get("joinUrl") ?? "";
 
   const copyLink = async () => {
     await navigator.clipboard.writeText(joinUrl);
@@ -35,14 +20,6 @@ export default function FleetCreatedPage() {
   const openFleet = () => {
     router.push(`/fleet/${params.fleetId}`);
   };
-
-  if (!fleet) {
-    return (
-      <div className="min-h-screen bg-fleet-bg flex items-center justify-center">
-        <div className="text-fleet-text-muted text-sm">Loading…</div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-fleet-bg flex items-center justify-center p-4">
