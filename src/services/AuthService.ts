@@ -56,14 +56,14 @@ export class AuthService {
   async handleCallback(
     code: string,
     stateKey: string
-  ): Promise<{ apiToken: string; characterId: number }> {
+  ): Promise<{ apiToken: string; characterId: number; returnUrl: string }> {
     const raw = await redis.get(`oauth:state:${stateKey}`);
     if (!raw) {
       throw new UnauthorizedError("OAuth state expired or invalid");
     }
     await redis.del(`oauth:state:${stateKey}`);
 
-    void (JSON.parse(raw) as OAuthState);
+    const stateData = JSON.parse(raw) as OAuthState;
 
     const tokenResponse = await this.esiClient.exchangeCode(code);
 
@@ -106,7 +106,14 @@ export class AuthService {
       "Auth callback completed"
     );
 
-    return { apiToken, characterId: tokenResponse.characterId };
+    // Only allow same-origin relative paths to prevent open redirects.
+    // ("//host" is protocol-relative and would escape the origin.)
+    const returnUrl =
+      stateData.returnUrl.startsWith("/") && !stateData.returnUrl.startsWith("//")
+        ? stateData.returnUrl
+        : "/";
+
+    return { apiToken, characterId: tokenResponse.characterId, returnUrl };
   }
 
   async logout(apiTokenId: string): Promise<void> {

@@ -16,11 +16,15 @@ export async function GET(req: NextRequest) {
     }
 
     const service = new AuthService(new EsiClient(), new EsiTokenStore());
-    const { apiToken, characterId } = await service.handleCallback(code, state);
+    const { apiToken, characterId, returnUrl } = await service.handleCallback(code, state);
+
+    // Redirect against APP_URL, not the request origin — inside the
+    // container the request host is 0.0.0.0:3000, not the public URL.
+    const base = process.env.APP_URL ?? req.nextUrl.origin;
 
     // Set httpOnly cookie for browser clients
     const response = NextResponse.redirect(
-      new URL("/", req.nextUrl.origin),
+      new URL(returnUrl, base),
       { status: 302 }
     );
 
