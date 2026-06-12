@@ -27,12 +27,13 @@ export default async function FleetLayout({ children, params }: Props) {
   const [session, fleet] = await Promise.all([
     db.session.findUnique({
       where: { fleetId_characterId: { fleetId: params.fleetId, characterId } },
-      select: { role: true, expiresAt: true },
+      select: { role: true, expiresAt: true, grantedScopes: true },
     }),
     db.fleet.findUnique({
       where: { id: params.fleetId },
       select: {
         name: true,
+        mediaSource: true,
         fc: { select: { characterName: true } },
       },
     }),
@@ -53,6 +54,8 @@ export default async function FleetLayout({ children, params }: Props) {
       fleetId={params.fleetId}
       characterId={characterId}
       role={session.role}
+      grantedScopes={session.grantedScopes as string[]}
+      mediaSource={fleet.mediaSource}
       fleetName={fleet.name}
       fcName={fleet.fc.characterName}
       partyKitHost={partyKitHost}

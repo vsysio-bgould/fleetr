@@ -1,16 +1,17 @@
 "use client";
 
 import { useFleet } from "@/contexts/FleetContext";
+import type { ClientMessage } from "@/config/party-messages";
 
 /**
  * Thin wrapper over FleetContext's send() function.
- * Use this when you need to send a message to the PartyKit room.
+ * Messages are the canonical ClientMessage union from party-messages.ts.
  */
 export function useFleetParty() {
   const { send, connection } = useFleet();
 
-  function sendMessage(type: string, payload?: Record<string, unknown>) {
-    send({ type, payload: payload ?? {} });
+  function sendMessage(msg: ClientMessage) {
+    send(msg);
   }
 
   return { send: sendMessage, connection };

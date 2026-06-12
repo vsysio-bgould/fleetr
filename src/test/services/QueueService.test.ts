@@ -29,8 +29,13 @@ vi.mock("@/lib/db", () => ({
       delete: vi.fn().mockResolvedValue({}),
       count: vi.fn().mockResolvedValue(1),
     },
+    auditLog: {
+      create: vi.fn().mockResolvedValue({}),
+    },
   },
 }));
+
+vi.mock("@/lib/broadcast", () => ({ broadcastToFleet: vi.fn().mockResolvedValue(undefined) }));
 
 describe("QueueService", () => {
   let service: QueueService;

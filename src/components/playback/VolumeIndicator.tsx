@@ -1,26 +1,15 @@
 "use client";
 
-import { useState } from "react";
 import { useFleet } from "@/contexts/FleetContext";
 
 export function VolumeIndicator() {
-  const { state, fleetId, myRole } = useFleet();
-  const { volume } = state.playback;
+  const { state, send, myRole } = useFleet();
+  const volume = state.volume;
   const isFc = myRole === "FLEET_COMMANDER" || myRole === "FC_DELEGATE";
-  const [pending, setPending] = useState(false);
 
-  const setVolume = async (v: number) => {
-    if (!isFc || pending) return;
-    setPending(true);
-    try {
-      await fetch(`/api/v1/fleets/${fleetId}/playback`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ volume: v }),
-      });
-    } finally {
-      setPending(false);
-    }
+  const setVolume = (v: number) => {
+    if (!isFc) return;
+    send({ type: "fleet:set-volume", volume: v });
   };
 
   return (

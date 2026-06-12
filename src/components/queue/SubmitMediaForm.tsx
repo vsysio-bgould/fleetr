@@ -22,7 +22,7 @@ export function SubmitMediaForm({ defaultQueue = "CRUISE" }: Props) {
       const res = await fetch(`/api/v1/fleets/${fleetId}/queue`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url, queue: defaultQueue }),
+        body: JSON.stringify({ mediaUrl: url, queue: defaultQueue }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));

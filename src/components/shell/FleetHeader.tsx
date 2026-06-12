@@ -12,7 +12,7 @@ interface Props {
 
 export function FleetHeader({ fleetName, fcName }: Props) {
   const { state, connection } = useFleet();
-  const { playback, members } = state;
+  const { nowPlaying, members } = state;
   const memberCount = Object.keys(members).length;
 
   return (
@@ -25,10 +25,10 @@ export function FleetHeader({ fleetName, fcName }: Props) {
 
       {/* Center: now playing */}
       <div className="flex-1 flex items-center justify-center min-w-0 px-4">
-        {playback.currentTitle ? (
+        {nowPlaying ? (
           <div className="flex items-center gap-2 min-w-0">
             <span className="text-[11px] uppercase tracking-[0.08em] text-[#3fa7ff] shrink-0">NOW PLAYING</span>
-            <span className="text-sm text-[#e6edf3] truncate">{playback.currentTitle}</span>
+            <span className="text-sm text-[#e6edf3] truncate">{nowPlaying.title}</span>
           </div>
         ) : (
           <span className="text-[11px] text-[#4a5568]">No media playing</span>

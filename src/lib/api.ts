@@ -55,11 +55,10 @@ export const api = {
     getScopeSelection: (): Promise<ScopeSelectionResponse> =>
       request("GET", "/api/v1/auth/scope-selection"),
 
-    begin: (body: { scopes: string[]; redirectUri: string }): Promise<{ url: string }> =>
+    begin: (body: { scopes: string[]; returnUrl?: string }): Promise<{ url: string }> =>
       request("POST", "/api/v1/auth/begin", body),
 
-    callback: (code: string, state: string): Promise<void> =>
-      request("POST", "/api/v1/auth/callback", { code, state }),
+    // The OAuth callback is a browser navigation (GET), not an API call.
 
     logout: (): Promise<void> =>
       request("POST", "/api/v1/auth/logout"),
@@ -82,49 +81,61 @@ export const api = {
     disband: (fleetId: string): Promise<void> =>
       request("DELETE", `/api/v1/fleets/${fleetId}`),
 
+    leave: (fleetId: string): Promise<void> =>
+      request("DELETE", `/api/v1/fleets/${fleetId}/join`),
+
     regenerateToken: (fleetId: string): Promise<{ joinToken: string }> =>
-      request("POST", `/api/v1/fleets/${fleetId}/regenerate-token`),
+      request("POST", `/api/v1/fleets/${fleetId}/token`),
 
     members: {
-      list: (fleetId: string): Promise<{ members: MemberResponse[] }> =>
+      list: (fleetId: string): Promise<MemberResponse[]> =>
         request("GET", `/api/v1/fleets/${fleetId}/members`),
 
       kick: (fleetId: string, characterId: number): Promise<void> =>
         request("DELETE", `/api/v1/fleets/${fleetId}/members/${characterId}`),
+    },
 
-      delegate: (fleetId: string, characterId: number): Promise<void> =>
-        request("POST", `/api/v1/fleets/${fleetId}/members/${characterId}/delegate`),
+    delegates: {
+      grant: (fleetId: string, characterId: number): Promise<void> =>
+        request("POST", `/api/v1/fleets/${fleetId}/delegates`, { characterId }),
 
-      undelegate: (fleetId: string, characterId: number): Promise<void> =>
-        request("DELETE", `/api/v1/fleets/${fleetId}/members/${characterId}/delegate`),
+      revoke: (fleetId: string, characterId: number): Promise<void> =>
+        request("DELETE", `/api/v1/fleets/${fleetId}/delegates/${characterId}`),
     },
 
     queue: {
-      list: (fleetId: string): Promise<{ entries: QueueEntryResponse[] }> =>
-        request("GET", `/api/v1/fleets/${fleetId}/queue`),
+      list: (fleetId: string, queue: "CRUISE" | "BATTLE"): Promise<QueueEntryResponse[]> =>
+        request("GET", `/api/v1/fleets/${fleetId}/queue?queue=${queue}`),
 
-      add: (fleetId: string, body: { url: string; queue: "CRUISE" | "BATTLE" }): Promise<QueueEntryResponse> =>
+      add: (fleetId: string, body: { mediaUrl: string; queue: "CRUISE" | "BATTLE" }): Promise<QueueEntryResponse> =>
         request("POST", `/api/v1/fleets/${fleetId}/queue`, body),
 
       remove: (fleetId: string, entryId: string): Promise<void> =>
         request("DELETE", `/api/v1/fleets/${fleetId}/queue/${entryId}`),
 
-      reorder: (fleetId: string, entryId: string, body: { afterId: string | null }): Promise<QueueEntryResponse> =>
+      validate: (fleetId: string, body: { mediaUrl: string; queue: "CRUISE" | "BATTLE" }): Promise<{
+        mediaId: string;
+        title: string;
+        thumbnailUrl: string | null;
+        duration: number | null;
+      }> =>
+        request("POST", `/api/v1/fleets/${fleetId}/queue/validate`, body),
+
+      reorder: (fleetId: string, entryId: string, body: { position: number }): Promise<QueueEntryResponse> =>
         request("PATCH", `/api/v1/fleets/${fleetId}/queue/${entryId}`, body),
 
-      vote: (fleetId: string, entryId: string, body: { vote: "YES" | "NO" | null }): Promise<void> =>
-        request("POST", `/api/v1/fleets/${fleetId}/queue/${entryId}/vote`, body),
+      vote: (fleetId: string, entryId: string): Promise<{ votes: number }> =>
+        request("POST", `/api/v1/fleets/${fleetId}/queue/${entryId}/vote`),
+
+      unvote: (fleetId: string, entryId: string): Promise<void> =>
+        request("DELETE", `/api/v1/fleets/${fleetId}/queue/${entryId}/vote`),
     },
 
     playback: {
-      update: (fleetId: string, body: { mode?: "CRUISE" | "BATTLE"; volume?: number }): Promise<void> =>
-        request("PATCH", `/api/v1/fleets/${fleetId}/playback`, body),
-
-      play: (fleetId: string, body: { entryId: string }): Promise<void> =>
-        request("POST", `/api/v1/fleets/${fleetId}/playback/play`, body),
-
-      stop: (fleetId: string): Promise<void> =>
-        request("POST", `/api/v1/fleets/${fleetId}/playback/stop`),
+      // Mode, volume, and track changes go through PartyKit (ClientMessage) —
+      // this endpoint is read-only state for load/reconnect.
+      get: (fleetId: string): Promise<PlaybackStateResponse> =>
+        request("GET", `/api/v1/fleets/${fleetId}/playback`),
     },
   },
 
@@ -182,15 +193,27 @@ export interface MemberResponse {
 
 export interface QueueEntryResponse {
   id: string;
-  url: string;
-  title: string;
   queue: "CRUISE" | "BATTLE";
+  mediaUrl: string;
+  mediaId: string;
+  title: string;
   thumbnailUrl: string | null;
   duration: number | null;
   submittedBy: number;
-  yesVotes: number;
-  noVotes: number;
-  myVote: "YES" | "NO" | null;
+  position: number;
+  votes: number;
+  hasVoted: boolean;
+}
+
+export interface PlaybackStateResponse {
+  fleetId: string;
+  queueEntryId: string | null;
+  mediaId: string | null;
+  title: string | null;
+  thumbnailUrl: string | null;
+  duration: number | null;
+  startedAt: string | null;
+  fleetOffsetSeconds: number | null;
 }
 
 export interface UserMeResponse {

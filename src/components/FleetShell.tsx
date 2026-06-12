@@ -1,6 +1,6 @@
 "use client";
 
-import type { SessionRole } from "@prisma/client";
+import type { MediaSource, SessionRole } from "@prisma/client";
 import { FleetProvider } from "@/contexts/FleetContext";
 import { AppShell } from "@/components/shell/AppShell";
 import { PlayerPanel } from "@/components/player/PlayerPanel";
@@ -11,6 +11,8 @@ interface Props {
   fleetId: string;
   characterId: number;
   role: SessionRole;
+  grantedScopes: string[];
+  mediaSource: MediaSource;
   fleetName: string;
   fcName: string;
   partyKitHost: string;
@@ -22,6 +24,8 @@ export function FleetShell({
   fleetId,
   characterId,
   role,
+  grantedScopes,
+  mediaSource,
   fleetName,
   fcName,
   partyKitHost,
@@ -33,6 +37,8 @@ export function FleetShell({
     <FleetProvider
       fleetId={fleetId}
       characterId={characterId}
+      grantedScopes={grantedScopes}
+      mediaSource={mediaSource}
       partyKitHost={partyKitHost}
       partyKitToken={partyKitToken}
     >

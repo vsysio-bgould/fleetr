@@ -3,12 +3,13 @@
 import { useFleet } from "@/contexts/FleetContext";
 
 export function ModeToggle() {
-  const { state, send } = useFleet();
-  const mode = state.playback.mode ?? "CRUISE";
+  const { state, send, myRole } = useFleet();
+  const mode = state.mode;
+  const isFc = myRole === "FLEET_COMMANDER" || myRole === "FC_DELEGATE";
 
   function setMode(next: "CRUISE" | "BATTLE") {
-    if (next !== mode) {
-      send({ type: "fleet:set-mode", payload: { mode: next } });
+    if (isFc && next !== mode) {
+      send({ type: "fleet:set-mode", mode: next });
     }
   }
 
@@ -18,7 +19,8 @@ export function ModeToggle() {
         <button
           key={m}
           onClick={() => setMode(m)}
-          className={`px-3 py-1 transition ${
+          disabled={!isFc}
+          className={`px-3 py-1 transition disabled:cursor-default ${
             mode === m
               ? "bg-[#3fa7ff] text-[#0b0f14]"
               : "bg-[#0f141a] text-[#9aa4b2] hover:text-[#e6edf3]"

@@ -7,15 +7,16 @@ import { ModeToggle } from "./ModeToggle";
 import { MuteToggle } from "./MuteToggle";
 
 export function PlayerPanel() {
-  const { state, muted } = useFleet();
-  const { currentMediaId, source, volume, startedAt, currentTitle, mode } = state.playback;
+  const { state, muted, mediaSource } = useFleet();
+  const { nowPlaying, mode, volume } = state;
 
   const { containerRef, catchUp, adPending, playerError } = usePlaybackController({
-    mediaId: currentMediaId,
-    source,
+    mediaId: nowPlaying?.mediaId ?? null,
+    source: mediaSource,
     volume,
     muted,
-    startedAt,
+    mode,
+    startedAt: nowPlaying?.startedAt ?? null,
   });
 
   return (
@@ -34,7 +35,7 @@ export function PlayerPanel() {
           ref={containerRef}
           className="absolute inset-0 rounded overflow-hidden bg-black"
         />
-        {!currentMediaId && (
+        {!nowPlaying && (
           <div className="absolute inset-0 flex items-center justify-center text-[#4a5568] text-sm">
             No media playing
           </div>
@@ -44,12 +45,12 @@ export function PlayerPanel() {
       {/* Controls strip */}
       <div className="flex items-center justify-between gap-2 px-1">
         <div className="flex items-center gap-2 min-w-0">
-          {currentTitle ? (
-            <span className="text-sm font-medium text-[#e6edf3] truncate">{currentTitle}</span>
+          {nowPlaying ? (
+            <span className="text-sm font-medium text-[#e6edf3] truncate">{nowPlaying.title}</span>
           ) : (
             <span className="text-sm text-[#4a5568]">Nothing queued</span>
           )}
-          {startedAt && currentMediaId && (
+          {nowPlaying && (
             <button
               onClick={catchUp}
               className="text-xs px-2 py-0.5 rounded border border-[#1f2a36] text-[#9aa4b2] hover:text-[#3fa7ff] hover:border-[#3fa7ff] transition-colors shrink-0"

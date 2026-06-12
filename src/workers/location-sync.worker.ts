@@ -107,7 +107,10 @@ const definition: WorkerDefinition<LocationSyncPayload> = {
     if (Object.keys(locations).length > 0) {
       void broadcastToFleet(fleetId, {
         type: "member:location-updated",
-        payload: { locations },
+        updates: Object.entries(locations).map(([charId, solarSystem]) => ({
+          characterId: Number(charId),
+          solarSystem,
+        })),
       });
     }
 

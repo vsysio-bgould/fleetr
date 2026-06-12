@@ -5,21 +5,17 @@ import { useFleet } from "@/contexts/FleetContext";
 const MODES = ["CRUISE", "BATTLE"] as const;
 
 export function ModeBar() {
-  const { state, fleetId, myRole } = useFleet();
-  const { mode } = state.playback;
+  const { state, send, myRole } = useFleet();
+  const mode = state.mode;
   const isFc = myRole === "FLEET_COMMANDER" || myRole === "FC_DELEGATE";
 
-  const setMode = async (newMode: typeof MODES[number]) => {
+  const setMode = (newMode: (typeof MODES)[number]) => {
     if (!isFc || newMode === mode) return;
-    await fetch(`/api/v1/fleets/${fleetId}/playback`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mode: newMode }),
-    });
+    send({ type: "fleet:set-mode", mode: newMode });
   };
 
   return (
-    <div className="flex gap-1">
+    <div className="flex gap-1 items-center">
       {MODES.map((m) => (
         <button
           key={m}
@@ -36,6 +32,15 @@ export function ModeBar() {
           {m}
         </button>
       ))}
+      {isFc && (
+        <button
+          onClick={() => send({ type: "fleet:advance" })}
+          className="ml-1 px-3 py-1 text-xs font-medium rounded border border-fleet-border text-fleet-text-muted hover:border-fleet-accent hover:text-fleet-text transition-colors"
+          title="Skip to the next track"
+        >
+          Skip ▸
+        </button>
+      )}
     </div>
   );
 }

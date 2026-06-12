@@ -8,6 +8,9 @@ vi.mock("@/lib/db", () => ({
       findUnique: vi.fn(),
       update: vi.fn().mockResolvedValue({}),
     },
+    auditLog: {
+      create: vi.fn().mockResolvedValue({}),
+    },
   },
 }));
 

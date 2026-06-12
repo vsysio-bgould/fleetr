@@ -8,6 +8,8 @@ import {
   ValidationError,
 } from "@/lib/errors";
 import type { MediaSource, QueueType } from "@prisma/client";
+import { broadcastToFleet } from "@/lib/broadcast";
+import type { ServerMessage } from "@/config/party-messages";
 import logger from "@/lib/logger";
 
 export interface QueueEntryRow {
@@ -100,6 +102,21 @@ export class QueueService {
       "Queue entry submitted"
     );
 
+    void broadcastToFleet(fleetId, {
+      type: "queue:entry-added",
+      payload: {
+        id: entry.id,
+        queue: entry.queue,
+        mediaId: entry.mediaId,
+        title: entry.title,
+        thumbnailUrl: entry.thumbnailUrl,
+        duration: entry.duration,
+        submittedBy: entry.submittedBy,
+        position: entry.position,
+        votes: 0,
+      },
+    } satisfies ServerMessage);
+
     return { ...entry, votes: 0, hasVoted: false };
   }
 
@@ -111,7 +128,7 @@ export class QueueService {
   ): Promise<void> {
     const entry = await db.queueEntry.findUnique({
       where: { id: entryId },
-      select: { fleetId: true, submittedBy: true, removedAt: true },
+      select: { fleetId: true, submittedBy: true, removedAt: true, queue: true },
     });
 
     if (!entry || entry.fleetId !== fleetId) throw new NotFoundError("Queue entry");
@@ -124,6 +141,12 @@ export class QueueService {
       where: { id: entryId },
       data: { removedAt: new Date(), removedBy: characterId },
     });
+
+    void broadcastToFleet(fleetId, {
+      type: "queue:entry-removed",
+      queueEntryId: entryId,
+      queue: entry.queue,
+    } satisfies ServerMessage);
   }
 
   async vote(
@@ -133,7 +156,7 @@ export class QueueService {
   ): Promise<number> {
     const entry = await db.queueEntry.findUnique({
       where: { id: entryId },
-      select: { fleetId: true, removedAt: true },
+      select: { fleetId: true, removedAt: true, queue: true },
     });
     if (!entry || entry.fleetId !== fleetId) throw new NotFoundError("Queue entry");
     if (entry.removedAt) throw new NotFoundError("Queue entry");
@@ -153,7 +176,18 @@ export class QueueService {
       },
     });
 
-    return db.vote.count({ where: { queueEntryId: entryId } });
+    const votes = await db.vote.count({ where: { queueEntryId: entryId } });
+
+    void broadcastToFleet(fleetId, {
+      type: "queue:vote-updated",
+      queueEntryId: entryId,
+      votes,
+      queue: entry.queue,
+      voterId: characterId,
+      voted: true,
+    } satisfies ServerMessage);
+
+    return votes;
   }
 
   async unvote(
@@ -163,7 +197,7 @@ export class QueueService {
   ): Promise<number> {
     const entry = await db.queueEntry.findUnique({
       where: { id: entryId },
-      select: { fleetId: true },
+      select: { fleetId: true, queue: true },
     });
     if (!entry || entry.fleetId !== fleetId) throw new NotFoundError("Queue entry");
 
@@ -173,7 +207,18 @@ export class QueueService {
       })
       .catch(() => null);
 
-    return db.vote.count({ where: { queueEntryId: entryId } });
+    const votes = await db.vote.count({ where: { queueEntryId: entryId } });
+
+    void broadcastToFleet(fleetId, {
+      type: "queue:vote-updated",
+      queueEntryId: entryId,
+      votes,
+      queue: entry.queue,
+      voterId: characterId,
+      voted: false,
+    } satisfies ServerMessage);
+
+    return votes;
   }
 
   async reorder(
@@ -194,6 +239,13 @@ export class QueueService {
       data: { position },
       include: { votes: true },
     });
+
+    void broadcastToFleet(fleetId, {
+      type: "queue:reordered",
+      queueEntryId: entryId,
+      position: updated.position,
+      queue: updated.queue,
+    } satisfies ServerMessage);
 
     return {
       id: updated.id,

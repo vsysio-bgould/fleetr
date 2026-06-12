@@ -53,7 +53,8 @@ export class DelegateService {
 
     void broadcastToFleet(fleetId, {
       type: "member:role-changed",
-      payload: { characterId: targetCharacterId, role: SessionRole.FC_DELEGATE },
+      characterId: targetCharacterId,
+      role: SessionRole.FC_DELEGATE,
     });
   }
 
@@ -81,7 +82,8 @@ export class DelegateService {
 
     void broadcastToFleet(fleetId, {
       type: "member:role-changed",
-      payload: { characterId: targetCharacterId, role: SessionRole.LINE_MEMBER },
+      characterId: targetCharacterId,
+      role: SessionRole.LINE_MEMBER,
     });
   }
 }

@@ -16,18 +16,19 @@ function errorMessage(code: string): string {
 }
 
 export function NowPlaying() {
-  const { state, muted } = useFleet();
-  const { currentMediaId, source, volume, startedAt, currentTitle, mode } = state.playback;
+  const { state, muted, mediaSource } = useFleet();
+  const { nowPlaying, mode, volume } = state;
 
   const { containerRef, catchUp, adPending, playerError } = usePlaybackController({
-    mediaId: currentMediaId,
-    source,
+    mediaId: nowPlaying?.mediaId ?? null,
+    source: mediaSource,
     volume,
     muted,
-    startedAt,
+    mode,
+    startedAt: nowPlaying?.startedAt ?? null,
   });
 
-  if (!currentMediaId) {
+  if (!nowPlaying) {
     return (
       <div className="text-[#9aa4b2] text-sm">
         Nothing playing — queue a track to get started
@@ -39,16 +40,12 @@ export function NowPlaying() {
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
         <div className="text-xs text-[#9aa4b2] uppercase tracking-wide">Now Playing</div>
-        <div className="flex items-center gap-2">
-          {startedAt && (
-            <button
-              onClick={catchUp}
-              className="text-xs px-2 py-1 rounded border border-[#1f2a36] text-[#9aa4b2] hover:text-[#3fa7ff] hover:border-[#3fa7ff] transition-colors"
-            >
-              Catch Up
-            </button>
-          )}
-        </div>
+        <button
+          onClick={catchUp}
+          className="text-xs px-2 py-1 rounded border border-[#1f2a36] text-[#9aa4b2] hover:text-[#3fa7ff] hover:border-[#3fa7ff] transition-colors"
+        >
+          Catch Up
+        </button>
       </div>
 
       {adPending && <AdPendingBanner mode={mode} />}
@@ -59,9 +56,7 @@ export function NowPlaying() {
         </div>
       )}
 
-      {currentTitle && (
-        <div className="text-sm font-medium text-[#e6edf3] truncate">{currentTitle}</div>
-      )}
+      <div className="text-sm font-medium text-[#e6edf3] truncate">{nowPlaying.title}</div>
 
       <div ref={containerRef} className="w-full rounded overflow-hidden" />
     </div>

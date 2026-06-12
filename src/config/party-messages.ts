@@ -66,6 +66,8 @@ export interface SyncState {
     mode: FleetMode;
     volume: number;      // 0–100; FC-controlled fleet-wide volume
     memberCount: number;
+    /** Currently connected members, built from the room's connection states. */
+    members: MemberSnapshot[];
     // Queue is NOT included — fetch via GET /api/v1/fleets/:id/queue
 }
 
@@ -177,8 +179,11 @@ export type ServerMessage =
     /** An entry was soft-deleted by an FC. Clients remove it from their local list. */
     | { type: 'queue:entry-removed'; queueEntryId: string; queue: QueueType }
 
-    /** A vote was cast or removed. Clients update the vote count in their local list. */
-    | { type: 'queue:vote-updated'; queueEntryId: string; votes: number; queue: QueueType }
+    /**
+     * A vote was cast or removed. Clients update the vote count in their local
+     * list. voterId/voted let the voter's own client flip its hasVoted flag.
+     */
+    | { type: 'queue:vote-updated'; queueEntryId: string; votes: number; queue: QueueType; voterId: number; voted: boolean }
 
     /** An FC reordered an entry. Clients re-sort their local list. */
     | { type: 'queue:reordered'; queueEntryId: string; position: number; queue: QueueType }

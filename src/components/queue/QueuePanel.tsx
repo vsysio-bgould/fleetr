@@ -11,8 +11,12 @@ export function QueuePanel() {
   const { queue } = state;
   const [activeTab, setActiveTab] = useState<"CRUISE" | "BATTLE">("CRUISE");
 
-  const cruiseEntries = queue.filter((e) => e.queue === "CRUISE");
-  const battleEntries = queue.filter((e) => e.queue === "BATTLE");
+  // Sort order per spec: votes desc, position asc for ties
+  const byVotesThenPosition = (a: (typeof queue)[number], b: (typeof queue)[number]) =>
+    b.votes - a.votes || a.position - b.position;
+
+  const cruiseEntries = queue.filter((e) => e.queue === "CRUISE").sort(byVotesThenPosition);
+  const battleEntries = queue.filter((e) => e.queue === "BATTLE").sort(byVotesThenPosition);
   const visibleEntries = activeTab === "CRUISE" ? cruiseEntries : battleEntries;
 
   return (

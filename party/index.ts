@@ -1,5 +1,11 @@
 import type * as Party from "partykit/server";
-import type { ClientMessage, ServerMessage, SyncState } from "../src/config/party-messages";
+import type {
+  ClientMessage,
+  FleetNowPlaying,
+  MemberSnapshot,
+  ServerMessage,
+  SyncState,
+} from "../src/config/party-messages";
 import type { SessionRole } from "@prisma/client";
 
 // ---------------------------------------------------------------------------
@@ -20,7 +26,7 @@ interface ConnectionState {
 interface RoomState {
   mode: "CRUISE" | "BATTLE";
   volume: number;
-  nowPlaying: null; // populated in Phase 6
+  nowPlaying: FleetNowPlaying | null;
 }
 
 const DEFAULT_STATE: RoomState = {
@@ -106,11 +112,24 @@ export default class FleetServer implements Party.Server {
     );
 
     // Send current sync state to the new connection
+    const members: MemberSnapshot[] = [];
+    for (const c of Array.from(this.room.getConnections())) {
+      const s = c.state as ConnectionState | undefined;
+      if (s) {
+        members.push({
+          characterId: s.characterId,
+          characterName: s.characterName,
+          role: s.role,
+        });
+      }
+    }
+
     const syncState: SyncState = {
       nowPlaying: this.state.nowPlaying,
       mode: this.state.mode,
       volume: this.state.volume,
-      memberCount: Array.from(this.room.getConnections()).length,
+      memberCount: members.length,
+      members,
     };
 
     conn.send(
@@ -208,14 +227,19 @@ export default class FleetServer implements Party.Server {
   private applyStateFromBroadcast(message: ServerMessage) {
     if (message.type === "fleet:mode-changed") {
       this.state.mode = message.mode;
-      this.state.nowPlaying = message.nowPlaying as null;
+      this.state.nowPlaying = message.nowPlaying;
     } else if (message.type === "fleet:volume-changed") {
       this.state.volume = message.volume;
     } else if (message.type === "fleet:now-playing") {
-      this.state.nowPlaying = message.payload as null;
+      this.state.nowPlaying = message.payload;
     }
   }
 
+  /**
+   * Map FC commands to the internal persistence endpoints (API-CONTRACT §3.1).
+   * The API persists the change and broadcasts the resulting ServerMessage back
+   * through this room's onRequest, which also updates in-memory state.
+   */
   private async dispatchToApi(
     message: ClientMessage,
     state: ConnectionState
@@ -224,14 +248,35 @@ export default class FleetServer implements Party.Server {
     const secret = this.room.env.PARTYKIT_SECRET as string;
     const fleetId = this.room.id.replace("fleet-", "");
 
-    await fetch(`${appUrl}/api/v1/internal/fleets/${fleetId}/party-message`, {
+    let path: string;
+    let body: object;
+
+    switch (message.type) {
+      case "fleet:set-track":
+        path = "playback";
+        body = { queueEntryId: message.queueEntryId, initiatedBy: state.characterId };
+        break;
+      case "fleet:advance":
+        path = "playback";
+        body = { queueEntryId: null, initiatedBy: state.characterId };
+        break;
+      case "fleet:set-mode":
+        path = "mode";
+        body = { mode: message.mode, initiatedBy: state.characterId };
+        break;
+      case "fleet:set-volume":
+        path = "volume";
+        body = { volume: message.volume };
+        break;
+    }
+
+    await fetch(`${appUrl}/api/v1/internal/fleets/${fleetId}/${path}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "X-PartyKit-Secret": secret,
-        "X-Character-Id": String(state.characterId),
       },
-      body: JSON.stringify(message),
+      body: JSON.stringify(body),
     }).catch(() => null);
   }
 }

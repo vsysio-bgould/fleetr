@@ -2,6 +2,7 @@ import db from "@/lib/db";
 import { ForbiddenError, NotFoundError } from "@/lib/errors";
 import { SessionRole } from "@prisma/client";
 import { broadcastToFleet } from "@/lib/broadcast";
+import type { ServerMessage } from "@/config/party-messages";
 import logger from "@/lib/logger";
 
 export class MemberService {
@@ -57,8 +58,8 @@ export class MemberService {
 
     void broadcastToFleet(fleetId, {
       type: "member:kicked",
-      payload: { characterId: targetCharacterId },
-    });
+      characterId: targetCharacterId,
+    } satisfies ServerMessage);
 
     logger.info({ fleetId, fcCharacterId, targetCharacterId }, "Member kicked");
   }
