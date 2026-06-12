@@ -29,7 +29,7 @@ export function PlayerPanel({ variant = "panel" }: Props) {
   if (variant === "bar") {
     return (
       <div className="flex items-center gap-4 h-full min-w-0">
-        <div className="relative w-56 md:w-64 aspect-video shrink-0 rounded overflow-hidden bg-black">
+        <div className="relative h-full aspect-video max-w-64 shrink-0 rounded overflow-hidden bg-black">
           <div
             ref={containerRef}
             className="absolute inset-0 [&>iframe]:h-full [&>iframe]:w-full [&>iframe]:border-0"
@@ -107,7 +107,7 @@ export function PlayerPanel({ variant = "panel" }: Props) {
       </div>
 
       {/* Controls strip */}
-      <div className="flex items-center justify-between gap-2 px-1">
+      <div className="flex items-center justify-between gap-3 px-1">
         <div className="flex items-center gap-2 min-w-0">
           {nowPlaying ? (
             <span className="text-sm font-medium text-[#e6edf3] truncate">{nowPlaying.title}</span>
@@ -126,13 +126,17 @@ export function PlayerPanel({ variant = "panel" }: Props) {
           )}
         </div>
 
-        <div className="flex items-center gap-1 shrink-0">
-          <span className="text-[10px] uppercase tracking-[0.08em] text-[#9aa4b2] mr-1">{mode}</span>
-          <ModeToggle />
-          <MuteToggle />
+        <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-1">
+            <span className="text-[10px] uppercase tracking-[0.08em] text-[#9aa4b2] mr-1">
+              MODE:
+            </span>
+            <ModeToggle />
+            <MuteToggle />
+          </div>
+          <VolumeIndicator />
         </div>
       </div>
-      <VolumeIndicator />
     </div>
   );
 }
