@@ -2,8 +2,8 @@ import { NextRequest } from "next/server";
 import { requireAuth } from "@/lib/auth-middleware";
 import { FleetJoinService } from "@/services/FleetJoinService";
 import { EsiClient } from "@/infra/esi/EsiClient";
+import { EsiTokenStore } from "@/infra/esi/EsiTokenStore";
 import { ok, noContent, errorResponse } from "@/lib/api-response";
-import db from "@/lib/db";
 
 export async function POST(
   req: NextRequest,
@@ -13,12 +13,10 @@ export async function POST(
     const { fleetId } = await Promise.resolve(params);
     const { characterId } = await requireAuth(req);
 
-    const esiToken = await db.esiToken.findUnique({
-      where: { characterId },
-      select: { accessToken: true, scopes: true },
-    });
+    const esiClient = new EsiClient();
+    const esiToken = await new EsiTokenStore().getOrRefresh(characterId, esiClient);
 
-    const service = new FleetJoinService(new EsiClient());
+    const service = new FleetJoinService(esiClient);
 
     // We need the join token, not fleetId, to look up the fleet.
     // The POST body can provide it, or the client resolves it from a join URL.
@@ -29,7 +27,7 @@ export async function POST(
       joinToken,
       characterId,
       esiToken?.accessToken ?? null,
-      (esiToken?.scopes as string[]) ?? []
+      esiToken?.scopes ?? []
     );
 
     return ok(result);
