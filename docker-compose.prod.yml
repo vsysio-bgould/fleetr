@@ -1,4 +1,18 @@
 services:
+  # One-shot: applies pending Prisma migrations, then exits.
+  # App and worker wait for it to complete successfully before starting.
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    command: ["npx", "prisma", "migrate", "deploy"]
+    environment:
+      DATABASE_URL: mysql://${MYSQL_USER:-fleetr}:${MYSQL_PASSWORD:-fleetr}@db:3306/fleetr
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
   app:
     build:
       context: .
@@ -8,7 +22,7 @@ services:
     environment:
       NODE_ENV: production
       DATABASE_URL: mysql://${MYSQL_USER:-fleetr}:${MYSQL_PASSWORD:-fleetr}@db:3306/fleetr
-      REDIS_URL: ${REDIS_URL}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       APP_URL: ${APP_URL}
       COOKIE_SECRET: ${COOKIE_SECRET}
       ESI_CLIENT_ID: ${ESI_CLIENT_ID}
@@ -26,6 +40,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     restart: unless-stopped
 
   worker:
@@ -35,7 +51,7 @@ services:
     environment:
       NODE_ENV: production
       DATABASE_URL: mysql://${MYSQL_USER:-fleetr}:${MYSQL_PASSWORD:-fleetr}@db:3306/fleetr
-      REDIS_URL: ${REDIS_URL}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       APP_URL: ${APP_URL}
       ESI_CLIENT_ID: ${ESI_CLIENT_ID}
       ESI_CLIENT_SECRET: ${ESI_CLIENT_SECRET}
@@ -48,6 +64,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     restart: unless-stopped
 
   db:
