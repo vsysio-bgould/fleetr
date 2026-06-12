@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
           esiTokenRefreshQueue.add(
             "refresh",
             { characterId: t.characterId },
-            { jobId: `esi-refresh:${t.characterId}` }
+            { jobId: `esi-refresh-${t.characterId}` }
           )
         )
       );
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
           fcPresenceQueue.add(
             "check",
             { fleetId: f.id },
-            { jobId: `fc-presence:${f.id}` }
+            { jobId: `fc-presence-${f.id}` }
           )
         )
       );

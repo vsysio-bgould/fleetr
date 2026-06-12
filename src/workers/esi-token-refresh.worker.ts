@@ -28,7 +28,7 @@ const definition: WorkerDefinition<EsiTokenRefreshPayload> = {
           esiTokenRefreshQueue.add(
             "refresh",
             { characterId: t.characterId },
-            { jobId: `esi-refresh:${t.characterId}` }
+            { jobId: `esi-refresh-${t.characterId}` }
           )
         )
       );

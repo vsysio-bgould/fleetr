@@ -32,7 +32,7 @@ When the fleet reference is set (FC calls `fleet:set-track` or `fleet:advance`, 
 
 ```typescript
 await queue.add('advance', payload, {
-    jobId: `fleet-advance:${fleetId}`,   // deterministic — replaces any existing job
+    jobId: `fleet-advance-${fleetId}`,   // deterministic — replaces any existing job
     delay: entry.duration * 1000,        // milliseconds until auto-advance
 });
 ```
@@ -45,10 +45,10 @@ If `entry.duration` is `null` (platform API did not return a duration), **no job
 
 When the FC switches fleet mode (CRUISE ↔ BATTLE), the mode switch handler:
 
-1. Cancels the current `fleet-advance:{fleetId}` job (the old queue's timer).
+1. Cancels the current `fleet-advance-{fleetId}` job (the old queue's timer).
 2. Finds the top entry in the new queue (votes desc, position asc).
 3. Sets that entry as the fleet reference (`startedAt = now()`).
-4. Schedules a new `fleet-advance:{fleetId}` job for the new entry's duration.
+4. Schedules a new `fleet-advance-{fleetId}` job for the new entry's duration.
 5. Broadcasts `fleet:mode-changed { mode, nowPlaying }` — clients interrupt immediately.
 
 If the new queue is empty, step 2 yields nothing: the reference is cleared, no job is scheduled, and `fleet:mode-changed { mode, nowPlaying: null }` is broadcast. Clients stop their players and show the empty queue state.
@@ -97,7 +97,7 @@ Marks fleets as disbanded when they have been abandoned — either past their `e
 
 1. **Expired fleets**: Query `Fleet` for rows where `expiresAt < now()` and `disbandedAt IS NULL`. Set `disbandedAt = now()`.
 2. **Orphaned fleets**: Query `Fleet` for active fleets (no `disbandedAt`) with no connected sessions in the last 30 minutes. Call ESI `GET /fleets/{esiFleetId}/members/` using the FC's stored token. If ESI returns `404` (fleet disbanded in EVE), set `disbandedAt = now()`.
-3. **For each disbanded fleet**: Cancel any pending `queue-advance` job (`fleet-advance:{fleetId}`), broadcast a fleet disband message via `POST /internal/fleets/:id/broadcast`, and emit an audit event.
+3. **For each disbanded fleet**: Cancel any pending `queue-advance` job (`fleet-advance-{fleetId}`), broadcast a fleet disband message via `POST /internal/fleets/:id/broadcast`, and emit an audit event.
 
 ### Notes
 
