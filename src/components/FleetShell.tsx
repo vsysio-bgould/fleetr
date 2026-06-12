@@ -78,7 +78,7 @@ function LineMemberShell({ fleetName, fcName }: { fleetName: string; fcName: str
         <div className="flex-1 min-w-0">
           <PlayerPanel />
         </div>
-        <div className="w-80 shrink-0 rounded border border-[#1f2a36] bg-[#121821]/80 backdrop-blur-sm overflow-hidden flex flex-col">
+        <div className="w-[30rem] max-w-[45%] shrink-0 rounded border border-[#1f2a36] bg-[#121821]/80 backdrop-blur-sm overflow-hidden flex flex-col">
           <QueuePanel />
         </div>
       </div>

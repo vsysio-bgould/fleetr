@@ -24,7 +24,7 @@ export function QueueEntryRow({ entry, position }: Props) {
 
   return (
     <div
-      className={`grid grid-cols-[2rem_4rem_minmax(0,1fr)_10rem_auto] items-center gap-3 px-4 py-3 group border-l-2 transition-colors ${
+      className={`grid grid-cols-[2rem_4rem_minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 group border-l-2 transition-colors ${
         isNowPlaying
           ? "border-[#3fa7ff] bg-[#3fa7ff]/10"
           : "border-transparent hover:bg-fleet-muted/10"
@@ -55,16 +55,9 @@ export function QueueEntryRow({ entry, position }: Props) {
           )}
         </div>
         <div className="text-xs text-fleet-text-muted truncate mt-0.5">
-          {isRemoved ? "Deleted by downvote threshold or FC" : entry.mediaId}
-        </div>
-      </div>
-
-      <div className="min-w-0">
-        <div className="text-[10px] uppercase tracking-[0.08em] text-fleet-text-muted">
-          Suggested by
-        </div>
-        <div className="text-xs text-fleet-text truncate">
-          {submitter ? submitter.characterName : `Character ${entry.submittedBy}`}
+          {isRemoved
+            ? "Deleted by downvote threshold or FC"
+            : `Suggested by ${submitter ? submitter.characterName : `Character ${entry.submittedBy}`}`}
         </div>
       </div>
 
