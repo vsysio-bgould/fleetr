@@ -1,7 +1,8 @@
 services:
   # One-shot: applies pending Prisma migrations and seeds the operator
   # user, then exits. App and worker wait for it to complete successfully.
-  # Seeding is skipped (not fatal) when SEED_OPERATOR_CHARACTER_ID is unset.
+  # The seed self-skips when an operator already exists; on a fresh
+  # database it requires SEED_OPERATOR_CHARACTER_ID and fails without it.
   migrate:
     build:
       context: .
@@ -12,11 +13,7 @@ services:
       - |
         set -e
         npx prisma migrate deploy
-        if [ -n "$$SEED_OPERATOR_CHARACTER_ID" ]; then
-          npx tsx prisma/seed.ts
-        else
-          echo "SEED_OPERATOR_CHARACTER_ID not set — skipping operator seed"
-        fi
+        npx tsx prisma/seed.ts
     environment:
       DATABASE_URL: mysql://${MYSQL_USER:-fleetr}:${MYSQL_PASSWORD:-fleetr}@db:3306/fleetr
       SEED_OPERATOR_CHARACTER_ID: ${SEED_OPERATOR_CHARACTER_ID:-}

@@ -3,6 +3,12 @@ import { PrismaClient } from "@prisma/client";
 const db = new PrismaClient();
 
 async function main() {
+  const existingOperators = await db.user.count({ where: { isOperator: true } });
+  if (existingOperators > 0) {
+    console.log(`Already initialized (${existingOperators} operator(s) exist) — skipping seed.`);
+    return;
+  }
+
   const characterId = parseInt(
     process.env.SEED_OPERATOR_CHARACTER_ID ?? "",
     10
@@ -10,8 +16,8 @@ async function main() {
 
   if (!characterId || isNaN(characterId)) {
     throw new Error(
-      "SEED_OPERATOR_CHARACTER_ID env var is required. " +
-        "Set it to your EVE Online character ID before seeding."
+      "Fresh database detected but SEED_OPERATOR_CHARACTER_ID is not set. " +
+        "Set it to your EVE Online character ID so the operator account can be bootstrapped."
     );
   }
 
