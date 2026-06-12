@@ -1,0 +1,16 @@
+FROM node:20-alpine AS base
+WORKDIR /app
+RUN apk add --no-cache libc6-compat
+
+FROM base AS deps
+COPY package.json package-lock.json ./
+RUN npm ci
+
+FROM base AS runner
+ENV NODE_ENV=production
+COPY --from=deps /app/node_modules ./node_modules
+COPY prisma ./prisma
+COPY src ./src
+COPY tsconfig.json ./
+RUN npm exec prisma generate
+CMD ["node", "--loader", "ts-node/esm", "src/worker.ts"]

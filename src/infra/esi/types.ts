@@ -1,0 +1,41 @@
+export interface EsiFleetMembership {
+  fleetId: string;
+  role:
+    | "fleet_commander"
+    | "wing_commander"
+    | "squad_commander"
+    | "squad_member";
+  squadId?: number;
+  wingId?: number;
+}
+
+export interface EsiCharacter {
+  name: string;
+  corporationId: number;
+}
+
+export interface EsiTokenResponse {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+  scopes: string[];
+  characterId: number;
+  characterName: string;
+}
+
+export interface IEsiClient {
+  exchangeCode(code: string): Promise<EsiTokenResponse>;
+  getFleetMembership(
+    characterId: number,
+    accessToken: string
+  ): Promise<EsiFleetMembership | null>;
+  getCharacter(characterId: number): Promise<EsiCharacter>;
+  getLocation(
+    characterId: number,
+    accessToken: string
+  ): Promise<{ solarSystemId: number } | null>;
+  getFleetMembers(
+    esiFleetId: string,
+    accessToken: string
+  ): Promise<Array<{ character_id: number; role: string }>>;
+}

@@ -1,0 +1,306 @@
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "mysql"
+    url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum FleetMode {
+    CRUISE
+    BATTLE
+}
+
+enum SessionRole {
+    LINE_MEMBER
+    FLEET_COMMANDER
+    FC_DELEGATE
+}
+
+enum QueueType {
+    CRUISE
+    BATTLE
+}
+
+/// The media platform a fleet uses. Set at fleet creation and immutable.
+/// All queue submissions must match the fleet's MediaSource.
+/// CUSTOM is reserved for a future FC-upload feature (mp3, flac, etc.)
+/// and is not yet implemented.
+enum MediaSource {
+    YOUTUBE
+    SOUNDCLOUD
+    CUSTOM
+}
+
+// ---------------------------------------------------------------------------
+// Identity
+// ---------------------------------------------------------------------------
+
+/// EVE Online character. Created on first successful ESI auth.
+model User {
+    characterId   Int     @id
+    characterName String
+    isOperator    Boolean @default(false)
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    fleets               Fleet[]              @relation("FleetFc")
+    sessions             Session[]
+    scopePreference      UserScopePreference?
+    delegates            FleetDelegate[]      @relation("DelegateCharacter")
+    grantedBy            FleetDelegate[]      @relation("DelegateGrantor")
+    queueEntries         QueueEntry[]         @relation("QueueEntrySubmitter")
+    removedEntries       QueueEntry[]         @relation("QueueEntryRemover")
+    votes                Vote[]
+    esiToken             EsiToken?
+    apiTokens            ApiToken[]
+    advisoryDismissals   AdvisoryDismissal[]
+}
+
+/// Bearer token for API authentication. Character-level — not fleet-scoped.
+/// Issued after ESI OAuth. Bots store this; browsers receive it in the
+/// OAuth callback response body (and also via an httpOnly cookie as fallback).
+/// Multiple tokens per character are allowed (e.g. one per bot instance).
+model ApiToken {
+    id          String    @id @default(uuid()) // this IS the bearer token value
+    characterId Int
+    label       String?   // optional human-readable label (e.g. "Discord bot")
+    expiresAt   DateTime
+    lastUsedAt  DateTime? // updated on each authenticated request
+    createdAt   DateTime  @default(now())
+
+    character User @relation(fields: [characterId], references: [characterId])
+
+    @@index([characterId])
+    @@index([expiresAt])
+}
+
+/// Persists the last scope selection made by a character, used to pre-fill
+/// the scope selection screen on subsequent logins. The JWT scp claim is
+/// authoritative — this is a UX hint only.
+model UserScopePreference {
+    characterId Int      @id
+    scopes      Json     // string[] — scopes the user last selected
+    updatedAt   DateTime @updatedAt
+
+    user User @relation(fields: [characterId], references: [characterId])
+}
+
+/// ESI OAuth refresh token for a character. Updated on every token rotation.
+/// Only stored for users who completed authentication (FCs and users who
+/// granted optional scopes). Line members' tokens are discarded after the
+/// one-time join gate.
+model EsiToken {
+    characterId          Int      @id
+    refreshToken         String   @db.Text
+    accessToken          String   @db.Text
+    accessTokenExpiresAt DateTime
+    scopes               Json     // string[] — scopes granted in this token
+    updatedAt            DateTime @updatedAt
+
+    user User @relation(fields: [characterId], references: [characterId])
+}
+
+/// Tracks advisory notice dismissals per character. Used to suppress
+/// notices that the user has already seen or permanently dismissed.
+/// key identifies the advisory (e.g. "youtube-premium").
+model AdvisoryDismissal {
+    characterId Int
+    key         String
+    lastShownAt DateTime  @default(now()) @updatedAt
+    permanent   Boolean   @default(false) // true = never show again
+
+    character User @relation(fields: [characterId], references: [characterId])
+
+    @@id([characterId, key])
+    @@index([characterId])
+}
+
+// ---------------------------------------------------------------------------
+// Fleets
+// ---------------------------------------------------------------------------
+
+/// A fleet session managed by Fleetr. One Fleetr fleet maps to one EVE fleet.
+///
+/// name: Set once at creation from the FC's EVE character name (ESI does not
+/// return a fleet name field). Never mutated after creation.
+///
+/// mediaSource: Chosen by the FC at fleet creation. Immutable. All queue
+/// submissions must match this platform.
+model Fleet {
+    id            String      @id @default(uuid())
+    esiFleetId    String      @unique
+    name          String      // FC's character name, set at creation from ESI
+    joinToken     String      @unique
+    mode          FleetMode   @default(CRUISE)
+    mediaSource   MediaSource @default(YOUTUBE)
+    fcCharacterId Int
+
+    expiresAt   DateTime?
+    disbandedAt DateTime?
+    createdAt   DateTime  @default(now())
+    updatedAt   DateTime  @updatedAt
+
+    fc           User            @relation("FleetFc", fields: [fcCharacterId], references: [characterId])
+    sessions     Session[]
+    delegates    FleetDelegate[]
+    queueEntries QueueEntry[]
+    playback     Playback?
+
+    @@index([fcCharacterId])
+    @@index([joinToken])
+    @@index([disbandedAt, expiresAt])
+}
+
+/// Grants a non-FC character FC-level access within a specific fleet.
+/// Non-transferable — only the original FC (or another FC-role holder) may create rows.
+model FleetDelegate {
+    id          String   @id @default(uuid())
+    fleetId     String
+    characterId Int
+    grantedBy   Int
+    grantedAt   DateTime @default(now())
+
+    fleet     Fleet @relation(fields: [fleetId], references: [id])
+    character User  @relation("DelegateCharacter", fields: [characterId], references: [characterId])
+    grantor   User  @relation("DelegateGrantor", fields: [grantedBy], references: [characterId])
+
+    @@unique([fleetId, characterId])
+    @@index([fleetId])
+}
+
+// ---------------------------------------------------------------------------
+// Sessions
+// ---------------------------------------------------------------------------
+
+/// An active Fleetr session: one per character per fleet.
+/// Role is set at join time and may be downgraded if a delegation is revoked.
+model Session {
+    id            String      @id @default(uuid())
+    fleetId       String
+    characterId   Int
+    role          SessionRole
+    grantedScopes Json        // string[] — scopes from the JWT scp claim at join time
+    ipAddress     String?
+    solarSystem   String?     // last-known solar system name, written by location-sync worker
+
+    createdAt DateTime @default(now())
+    expiresAt DateTime
+
+    fleet     Fleet @relation(fields: [fleetId], references: [id])
+    character User  @relation(fields: [characterId], references: [characterId])
+
+    @@unique([fleetId, characterId])
+    @@index([fleetId])
+    @@index([expiresAt])
+}
+
+// ---------------------------------------------------------------------------
+// Queue
+// ---------------------------------------------------------------------------
+
+/// A media submission in a fleet queue.
+///
+/// mediaUrl:  The full URL submitted by the user. Validated against the
+///            fleet's mediaSource at submission time.
+/// mediaId:   Platform-specific identifier extracted from mediaUrl at
+///            submission time (YouTube video ID, SoundCloud track URL slug).
+///            Used to construct embed URLs without re-parsing mediaUrl.
+/// duration:  Track length in seconds, fetched from the platform API at
+///            submission time. Used for progress display and end-of-track sync.
+///
+/// position:  Float to allow insertion between items without renumbering
+///            (e.g. 1.5 sits between 1.0 and 2.0). Sort order: votes desc,
+///            position asc for ties. FC manual reorder updates position only.
+///
+/// Soft-deleted via removedAt so vote history is preserved.
+model QueueEntry {
+    id           String    @id @default(uuid())
+    fleetId      String
+    queue        QueueType
+    mediaUrl     String
+    mediaId      String    // platform-specific ID, extracted at submission
+    title        String
+    thumbnailUrl String?
+    duration     Int?      // seconds; null if the platform did not return it
+    submittedBy  Int
+    position     Float     @default(0)
+    submittedAt  DateTime  @default(now())
+    removedAt    DateTime?
+    removedBy    Int?
+
+    fleet     Fleet      @relation(fields: [fleetId], references: [id])
+    submitter User       @relation("QueueEntrySubmitter", fields: [submittedBy], references: [characterId])
+    remover   User?      @relation("QueueEntryRemover", fields: [removedBy], references: [characterId])
+    votes     Vote[]
+    playback  Playback[]
+
+    @@index([fleetId, queue, removedAt, position])
+    @@index([submittedBy])
+}
+
+/// A single upvote cast by a character on a queue entry.
+/// One vote per character per entry — enforced by unique constraint.
+model Vote {
+    id           String   @id @default(uuid())
+    queueEntryId String
+    characterId  Int
+    createdAt    DateTime @default(now())
+
+    entry     QueueEntry @relation(fields: [queueEntryId], references: [id])
+    character User       @relation(fields: [characterId], references: [characterId])
+
+    @@unique([queueEntryId, characterId])
+    @@index([queueEntryId])
+}
+
+// ---------------------------------------------------------------------------
+// Playback
+// ---------------------------------------------------------------------------
+
+/// The fleet reference track. One row per fleet, upserted when the FC sets or
+/// advances the track, and when the auto-advance worker fires.
+///
+/// This is NOT a synchronized player position. It is the reference point
+/// that clients display in NowPlaying and can optionally seek to ("Catch Up").
+/// Individual client playback is entirely local and is not persisted.
+///
+/// Fleet position for catch-up = (now - startedAt).seconds
+///
+/// Recovery: on PartyKit room init or client reconnect, read this row and
+/// emit sync:state. The auto-advance worker re-schedules its job based on
+/// (startedAt + duration) - now.
+model Playback {
+    fleetId      String    @id
+    queueEntryId String?   // null = no track set yet
+    mediaId      String?   // denormalized platform-specific ID for fast embed construction
+    startedAt    DateTime? // when the fleet reference was set to this track
+    updatedAt    DateTime  @updatedAt
+
+    fleet      Fleet       @relation(fields: [fleetId], references: [id])
+    queueEntry QueueEntry? @relation(fields: [queueEntryId], references: [id])
+}
+
+// ---------------------------------------------------------------------------
+// Audit
+// ---------------------------------------------------------------------------
+
+/// Append-only event log for security and operational audit.
+/// actor is a characterId (as string) or "system" for automated events.
+model AuditLog {
+    id        String   @id @default(uuid())
+    event     String
+    actor     String
+    payload   Json
+    ip        String?
+    createdAt DateTime @default(now())
+
+    @@index([event, createdAt])
+    @@index([actor, createdAt])
+}

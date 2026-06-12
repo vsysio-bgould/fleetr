@@ -1,0 +1,94 @@
+# Fleetr local development infrastructure.
+#
+# Usage:
+#   docker compose up -d                  Start dev services (MySQL + Redis)
+#   docker compose --profile test up -d   Also start test services (offset ports)
+#   docker compose down                   Stop all services
+#   docker compose down -v                Stop and delete all data volumes
+#
+# The app and worker are run locally with npm scripts, not in Docker:
+#   npm run dev     Next.js dev server
+#   npm run worker  BullMQ worker process
+#   npx partykit dev
+
+services:
+
+  # ------------------------------------------------------------------
+  # MySQL — primary database
+  # ------------------------------------------------------------------
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: fleetr
+      MYSQL_USER: fleetr
+      MYSQL_PASSWORD: fleetr
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "fleetr", "-pfleetr"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  # ------------------------------------------------------------------
+  # Redis — BullMQ queues + optional caching
+  # ------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ------------------------------------------------------------------
+  # MySQL (test) — isolated database for running the test suite.
+  # Mirrors the schema of the dev database but on port 3307.
+  # Started with: docker compose --profile test up -d
+  # ------------------------------------------------------------------
+  mysql_test:
+    profiles: ["test"]
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: fleetr_test
+      MYSQL_USER: fleetr
+      MYSQL_PASSWORD: fleetr
+    ports:
+      - "3307:3306"
+    # No persistent volume — test data is ephemeral by design.
+    tmpfs:
+      - /var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "fleetr", "-pfleetr"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ------------------------------------------------------------------
+  # Redis (test) — isolated Redis for test suite on port 6380.
+  # ------------------------------------------------------------------
+  redis_test:
+    profiles: ["test"]
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+    # No persistent volume — test data is ephemeral by design.
+
+volumes:
+  mysql_data:
+    driver: local
+  redis_data:
+    driver: local

@@ -1,0 +1,34 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Fleet color tokens — EVE dark theme */
+  --fleet-bg: 222 20% 8%;
+  --fleet-surface: 222 16% 12%;
+  --fleet-border: 222 14% 20%;
+  --fleet-accent: 210 100% 56%;
+  --fleet-muted: 222 12% 28%;
+  --fleet-text: 210 20% 92%;
+  --fleet-text-muted: 210 12% 56%;
+
+  /* Mode accents */
+  --battle-accent: 0 84% 60%;
+  --cruise-accent: 142 70% 45%;
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+  background-color: hsl(var(--fleet-bg));
+  color: hsl(var(--fleet-text));
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
