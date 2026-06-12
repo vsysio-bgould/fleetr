@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   app:
     build:
@@ -8,16 +6,21 @@ services:
     ports:
       - "3000:3000"
     environment:
+      NODE_ENV: production
       DATABASE_URL: ${DATABASE_URL}
       REDIS_URL: ${REDIS_URL}
-      EVE_CLIENT_ID: ${EVE_CLIENT_ID}
-      EVE_CLIENT_SECRET: ${EVE_CLIENT_SECRET}
-      EVE_CALLBACK_URL: ${EVE_CALLBACK_URL}
       APP_URL: ${APP_URL}
-      PARTYKIT_HOST: ${PARTYKIT_HOST}
-      PARTYKIT_SECRET: ${PARTYKIT_SECRET}
+      COOKIE_SECRET: ${COOKIE_SECRET}
+      ESI_CLIENT_ID: ${ESI_CLIENT_ID}
+      ESI_CLIENT_SECRET: ${ESI_CLIENT_SECRET}
+      ESI_CALLBACK_URL: ${ESI_CALLBACK_URL}
+      CRON_SECRET: ${CRON_SECRET}
       NEXT_PUBLIC_PARTYKIT_HOST: ${NEXT_PUBLIC_PARTYKIT_HOST}
-      JWT_SECRET: ${JWT_SECRET}
+      PARTYKIT_SECRET: ${PARTYKIT_SECRET}
+      PARTYKIT_APP_URL: ${PARTYKIT_APP_URL:-}
+      YOUTUBE_API_KEY: ${YOUTUBE_API_KEY}
+      SOUNDCLOUD_CLIENT_ID: ${SOUNDCLOUD_CLIENT_ID:-}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
     depends_on:
       db:
         condition: service_healthy
@@ -30,13 +33,16 @@ services:
       context: .
       dockerfile: Dockerfile.worker
     environment:
+      NODE_ENV: production
       DATABASE_URL: ${DATABASE_URL}
       REDIS_URL: ${REDIS_URL}
-      EVE_CLIENT_ID: ${EVE_CLIENT_ID}
-      EVE_CLIENT_SECRET: ${EVE_CLIENT_SECRET}
       APP_URL: ${APP_URL}
-      PARTYKIT_HOST: ${PARTYKIT_HOST}
+      ESI_CLIENT_ID: ${ESI_CLIENT_ID}
+      ESI_CLIENT_SECRET: ${ESI_CLIENT_SECRET}
       PARTYKIT_SECRET: ${PARTYKIT_SECRET}
+      PARTYKIT_APP_URL: ${PARTYKIT_APP_URL:-}
+      YOUTUBE_API_KEY: ${YOUTUBE_API_KEY}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
     depends_on:
       db:
         condition: service_healthy
@@ -58,12 +64,14 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
     restart: unless-stopped
 
   redis:
     image: redis:7-alpine
     volumes:
       - redis_data:/data
+    command: redis-server --appendonly yes
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s

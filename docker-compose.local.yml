@@ -1,0 +1,147 @@
+# Full local stack for integration testing.
+# All app services run in development mode (hot-reload, tsx, next dev).
+#
+# Quick start:
+#   cp .env.local.example .env.local
+#   # fill in COOKIE_SECRET, ESI_CLIENT_ID/SECRET, CRON_SECRET, PARTYKIT_SECRET, YOUTUBE_API_KEY
+#   docker compose -f docker-compose.local.yml up --build
+#
+# Useful one-liners:
+#   docker compose -f docker-compose.local.yml logs -f app
+#   docker compose -f docker-compose.local.yml restart worker
+#   docker compose -f docker-compose.local.yml down -v   # wipe volumes
+#
+# After changing package.json, rebuild to refresh the shared node_modules volume:
+#   docker compose -f docker-compose.local.yml build
+#   docker compose -f docker-compose.local.yml up --force-recreate
+#
+# Service URLs (from host machine):
+#   Next.js app   http://localhost:3000
+#   PartyKit      ws://localhost:1999
+#   MySQL         localhost:3306  (fleetr / fleetr)
+#   Redis         localhost:6379
+
+services:
+
+  # ------------------------------------------------------------------
+  # MySQL — primary database (same credentials as docker-compose.yml)
+  # ------------------------------------------------------------------
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: fleetr
+      MYSQL_USER: fleetr
+      MYSQL_PASSWORD: fleetr
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_local_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "fleetr", "-pfleetr"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  # ------------------------------------------------------------------
+  # Redis
+  # ------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_local_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ------------------------------------------------------------------
+  # Migrate — runs prisma migrate deploy once then exits.
+  # All other app services wait for this to complete successfully.
+  # ------------------------------------------------------------------
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile.local
+    image: fleetr-local
+    env_file: .env.local
+    command: npx prisma migrate deploy
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: "no"
+
+  # ------------------------------------------------------------------
+  # Next.js app — development mode with hot reload
+  # ------------------------------------------------------------------
+  app:
+    image: fleetr-local
+    env_file: .env.local
+    environment:
+      NODE_ENV: development
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules
+    command: npm run dev
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ------------------------------------------------------------------
+  # BullMQ worker — tsx watch mode
+  # ------------------------------------------------------------------
+  worker:
+    image: fleetr-local
+    env_file: .env.local
+    environment:
+      NODE_ENV: development
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules
+    command: npm run worker
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ------------------------------------------------------------------
+  # PartyKit dev server — WebSocket layer
+  #
+  # The browser connects via ws://localhost:1999.
+  # Callbacks to the Next.js app use the internal Docker network
+  # (PARTYKIT_APP_URL=http://app:3000 in .env.local).
+  # ------------------------------------------------------------------
+  partykit:
+    image: fleetr-local
+    env_file: .env.local
+    ports:
+      - "1999:1999"
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules
+    command: npx partykit dev --port 1999 --host 0.0.0.0
+    depends_on:
+      app:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  mysql_local_data:
+  redis_local_data:
+  # Shared node_modules populated from the fleetr-local image build.
+  # Run "docker compose -f docker-compose.local.yml build" after package.json changes.
+  node_modules:

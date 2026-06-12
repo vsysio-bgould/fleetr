@@ -10,6 +10,9 @@ out/
 .env.local
 .env.*.local
 
+# Local Docker Compose secrets (copy from .env.local.example)
+# .env.local.example is committed; .env.local is not
+
 # Prisma generated client
 prisma/generated/
 

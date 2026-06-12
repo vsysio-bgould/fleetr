@@ -61,7 +61,11 @@ export default class FleetServer implements Party.Server {
     }
 
     // Validate token and session via internal API
-    const appUrl = this.room.env.APP_URL as string ?? "http://localhost:3000";
+    // PARTYKIT_APP_URL allows Docker Compose to point at the internal service
+    // name (http://app:3000) while APP_URL stays as the public-facing URL.
+    const appUrl = (this.room.env.PARTYKIT_APP_URL as string | undefined)
+      ?? (this.room.env.APP_URL as string | undefined)
+      ?? "http://localhost:3000";
     const secret = this.room.env.PARTYKIT_SECRET as string;
 
     let connectionState: ConnectionState;
@@ -244,7 +248,9 @@ export default class FleetServer implements Party.Server {
     message: ClientMessage,
     state: ConnectionState
   ): Promise<void> {
-    const appUrl = this.room.env.APP_URL as string ?? "http://localhost:3000";
+    const appUrl = (this.room.env.PARTYKIT_APP_URL as string | undefined)
+      ?? (this.room.env.APP_URL as string | undefined)
+      ?? "http://localhost:3000";
     const secret = this.room.env.PARTYKIT_SECRET as string;
     const fleetId = this.room.id.replace("fleet-", "");
 

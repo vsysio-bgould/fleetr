@@ -1,0 +1,11 @@
+FROM node:24-alpine
+WORKDIR /app
+RUN apk add --no-cache libc6-compat
+
+# Install all deps (including devDependencies — tsx, partykit, prisma CLI, etc.)
+COPY package.json package-lock.json ./
+RUN npm ci
+
+# Copy source and generate Prisma client
+COPY . .
+RUN npx prisma generate
