@@ -55,6 +55,7 @@ export default class FleetServer implements Party.Server {
     const fleetId = this.room.id.replace("fleet-", "");
 
     if (!token) {
+      console.error(`[onConnect] room=${this.room.id} rejected: no token in query string`);
       this.closeUnauthenticated(conn);
       return;
     }
@@ -65,7 +66,15 @@ export default class FleetServer implements Party.Server {
     const appUrl = (this.room.env.PARTYKIT_APP_URL as string | undefined)
       ?? (this.room.env.APP_URL as string | undefined)
       ?? "http://localhost:3000";
-    const secret = this.room.env.PARTYKIT_SECRET as string;
+    const secret = this.room.env.PARTYKIT_SECRET as string | undefined;
+
+    if (!secret) {
+      console.error(
+        `[onConnect] room=${this.room.id} rejected: PARTYKIT_SECRET is not set in the PartyKit environment`
+      );
+      this.closeUnauthenticated(conn);
+      return;
+    }
 
     let connectionState: ConnectionState;
     try {
@@ -82,12 +91,16 @@ export default class FleetServer implements Party.Server {
       );
 
       if (!res.ok) {
-        await res.text().catch(() => "");
-        throw new Error(`Validation failed: ${res.status}`);
+        const body = await res.text().catch(() => "");
+        throw new Error(`validation returned ${res.status}: ${body.slice(0, 200)}`);
       }
 
       connectionState = await res.json();
-    } catch {
+    } catch (err) {
+      console.error(
+        `[onConnect] room=${this.room.id} rejected: validate-connection failed ` +
+          `(appUrl=${appUrl}): ${err instanceof Error ? err.message : String(err)}`
+      );
       this.closeUnauthenticated(conn);
       return;
     }
@@ -291,9 +304,22 @@ export default class FleetServer implements Party.Server {
         "X-PartyKit-Secret": secret,
       },
       body: JSON.stringify(body),
-    }).catch(() => null);
+    }).catch((err: unknown) => {
+      console.error(
+        `[onMessage] room=${this.room.id} ${path} relay failed (appUrl=${appUrl}): ` +
+          (err instanceof Error ? err.message : String(err))
+      );
+      return null;
+    });
 
-    if (!res?.ok) return;
+    if (!res) return;
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      console.error(
+        `[onMessage] room=${this.room.id} ${path} relay returned ${res.status}: ${text.slice(0, 200)}`
+      );
+      return;
+    }
 
     const data = await res.json().catch(() => null) as
       | { data?: { message?: ServerMessage } }
