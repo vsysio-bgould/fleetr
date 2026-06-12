@@ -1,13 +1,26 @@
 services:
-  # One-shot: applies pending Prisma migrations, then exits.
-  # App and worker wait for it to complete successfully before starting.
+  # One-shot: applies pending Prisma migrations and seeds the operator
+  # user, then exits. App and worker wait for it to complete successfully.
+  # Seeding is skipped (not fatal) when SEED_OPERATOR_CHARACTER_ID is unset.
   migrate:
     build:
       context: .
       dockerfile: Dockerfile.worker
-    command: ["npx", "prisma", "migrate", "deploy"]
+    command:
+      - sh
+      - -c
+      - |
+        set -e
+        npx prisma migrate deploy
+        if [ -n "$$SEED_OPERATOR_CHARACTER_ID" ]; then
+          npx tsx prisma/seed.ts
+        else
+          echo "SEED_OPERATOR_CHARACTER_ID not set — skipping operator seed"
+        fi
     environment:
       DATABASE_URL: mysql://${MYSQL_USER:-fleetr}:${MYSQL_PASSWORD:-fleetr}@db:3306/fleetr
+      SEED_OPERATOR_CHARACTER_ID: ${SEED_OPERATOR_CHARACTER_ID:-}
+      SEED_OPERATOR_CHARACTER_NAME: ${SEED_OPERATOR_CHARACTER_NAME:-}
     depends_on:
       db:
         condition: service_healthy

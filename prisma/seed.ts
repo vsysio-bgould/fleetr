@@ -16,7 +16,7 @@ async function main() {
   }
 
   const characterName =
-    process.env.SEED_OPERATOR_CHARACTER_NAME ?? "Operator";
+    process.env.SEED_OPERATOR_CHARACTER_NAME || "Operator";
 
   const user = await db.user.upsert({
     where: { characterId },
