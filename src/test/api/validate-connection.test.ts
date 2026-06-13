@@ -72,6 +72,8 @@ describe("POST /api/v1/internal/fleets/:id/validate-connection", () => {
     vi.mocked(db.fleet.findUnique).mockResolvedValueOnce({
       battleVolumePercent: 25,
       downvoteDeletePercent: 50,
+      disbandedAt: null,
+      expiresAt: null,
     } as never);
 
     const res = await POST(
@@ -94,9 +96,12 @@ describe("POST /api/v1/internal/fleets/:id/validate-connection", () => {
     vi.mocked(db.fleet.findUnique).mockResolvedValueOnce({
       battleVolumePercent: 25,
       downvoteDeletePercent: 50,
+      disbandedAt: null,
+      expiresAt: null,
     } as never);
     vi.mocked(db.user.findUnique).mockResolvedValueOnce({
       characterName: "Test Pilot",
+      isOperator: false,
     } as never);
 
     const res = await POST(
@@ -110,5 +115,35 @@ describe("POST /api/v1/internal/fleets/:id/validate-connection", () => {
     expect(body.characterName).toBe("Test Pilot");
     expect(body.role).toBe("FLEET_COMMANDER");
     expect(body.fleetId).toBe("fleet-uuid");
+  });
+
+  it("returns 200 for an operator without a fleet session", async () => {
+    const db = (await import("@/lib/db")).default;
+    vi.mocked(db.apiToken.findUnique).mockResolvedValueOnce({
+      characterId: 12345,
+      expiresAt: new Date(Date.now() + 1000 * 60),
+    } as never);
+    vi.mocked(db.session.findUnique).mockResolvedValueOnce(null);
+    vi.mocked(db.session.findFirst).mockResolvedValueOnce(null);
+    vi.mocked(db.fleet.findUnique).mockResolvedValueOnce({
+      battleVolumePercent: 25,
+      downvoteDeletePercent: 50,
+      disbandedAt: null,
+      expiresAt: null,
+    } as never);
+    vi.mocked(db.user.findUnique).mockResolvedValueOnce({
+      characterName: "Operator Pilot",
+      isOperator: true,
+    } as never);
+
+    const res = await POST(
+      makeRequest({ token: "valid-token" }, VALID_SECRET),
+      { params: { fleetId: "fleet-uuid" } }
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.characterName).toBe("Operator Pilot");
+    expect(body.role).toBe("FLEET_BOSS");
   });
 });

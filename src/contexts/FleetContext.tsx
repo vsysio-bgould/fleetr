@@ -262,6 +262,7 @@ interface FleetContextValue {
   connection: ConnectionStatus;
   fleetId: string;
   mediaSource: MediaSource;
+  isOperator: boolean;
   myCharacterId: number;
   myRole: MemberSnapshot["role"] | null;
   grantedScopes: string[];
@@ -291,6 +292,7 @@ interface ProviderProps {
   downvoteDeletePercent: number;
   partyKitHost: string;
   partyKitToken: string;
+  isOperator: boolean;
 }
 
 const RECONNECT_DELAY_MS = 3000;
@@ -316,6 +318,7 @@ export function FleetProvider({
   downvoteDeletePercent,
   partyKitHost,
   partyKitToken,
+  isOperator,
 }: ProviderProps) {
   const [state, dispatch] = useReducer(reducer, initialState);
   const [connection, setConnection] = useState<ConnectionStatus>("reconnecting");
@@ -478,7 +481,7 @@ export function FleetProvider({
     };
   }, [fleetId, characterId, partyKitHost, partyKitToken]);
 
-  const myRole = state.members[characterId]?.role ?? null;
+  const myRole = isOperator ? "FLEET_BOSS" : state.members[characterId]?.role ?? null;
 
   function send(msg: ClientMessage) {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -507,6 +510,7 @@ export function FleetProvider({
         connection,
         fleetId,
         mediaSource,
+        isOperator,
         myCharacterId: characterId,
         myRole,
         grantedScopes,

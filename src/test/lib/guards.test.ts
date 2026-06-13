@@ -12,6 +12,7 @@ function makeCtx(overrides: Partial<SessionContext> = {}): SessionContext {
     fleetId: "fleet-uuid",
     role: SessionRole.LINE_MEMBER,
     grantedScopes: [],
+    isOperator: false,
     ...overrides,
   };
 }
@@ -32,6 +33,12 @@ describe("requireFc", () => {
   it("throws ForbiddenError for LINE_MEMBER", () => {
     expect(() => requireFc(makeCtx({ role: SessionRole.LINE_MEMBER }))).toThrow(ForbiddenError);
   });
+
+  it("passes for operators even without fleet role", () => {
+    expect(() =>
+      requireFc(makeCtx({ role: SessionRole.LINE_MEMBER, isOperator: true }))
+    ).not.toThrow();
+  });
 });
 
 describe("requireDelegationManager", () => {
@@ -42,6 +49,12 @@ describe("requireDelegationManager", () => {
 
   it("rejects delegates", () => {
     expect(() => requireDelegationManager(makeCtx({ role: SessionRole.FC_DELEGATE }))).toThrow(ForbiddenError);
+  });
+
+  it("passes for operators even without boss or commander role", () => {
+    expect(() =>
+      requireDelegationManager(makeCtx({ role: SessionRole.LINE_MEMBER, isOperator: true }))
+    ).not.toThrow();
   });
 });
 

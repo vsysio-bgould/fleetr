@@ -17,6 +17,8 @@ interface Props {
   fleetId: string;
   characterId: number;
   role: SessionRole;
+  isOperator: boolean;
+  activeFleets: Array<{ id: string; name: string; bossName: string }>;
   grantedScopes: string[];
   mediaSource: MediaSource;
   battleVolumePercent: number;
@@ -32,6 +34,8 @@ export function FleetShell({
   fleetId,
   characterId,
   role,
+  isOperator,
+  activeFleets,
   grantedScopes,
   mediaSource,
   battleVolumePercent,
@@ -51,12 +55,15 @@ export function FleetShell({
       downvoteDeletePercent={downvoteDeletePercent}
       partyKitHost={partyKitHost}
       partyKitToken={partyKitToken}
+      isOperator={isOperator}
     >
       <FleetChrome
         fleetId={fleetId}
         fleetName={fleetName}
         fcName={fcName}
         initialRole={role}
+        isOperator={isOperator}
+        activeFleets={activeFleets}
       >
         {children}
       </FleetChrome>
@@ -70,18 +77,28 @@ function FleetChrome({
   fleetName,
   fcName,
   initialRole,
+  isOperator,
+  activeFleets,
 }: {
   children: React.ReactNode;
   fleetId: string;
   fleetName: string;
   fcName: string;
   initialRole: SessionRole;
+  isOperator: boolean;
+  activeFleets: Array<{ id: string; name: string; bossName: string }>;
 }) {
   const { myRole } = useFleet();
-  const effectiveRole = myRole ?? initialRole;
+  const effectiveRole = isOperator ? "FLEET_BOSS" : myRole ?? initialRole;
 
   return hasFleetControl(effectiveRole) ? (
-    <AppShell fleetId={fleetId} fleetName={fleetName} fcName={fcName}>
+    <AppShell
+      fleetId={fleetId}
+      fleetName={fleetName}
+      fcName={fcName}
+      isOperator={isOperator}
+      activeFleets={activeFleets}
+    >
       {children}
     </AppShell>
   ) : (

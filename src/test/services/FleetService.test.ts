@@ -141,6 +141,32 @@ describe("FleetService", () => {
       );
     });
 
+    it("allows an operator override to create without boss or commander role", async () => {
+      vi.mocked(mockEsi.getFleetMembership).mockResolvedValueOnce({
+        fleetId: "fleet-123",
+        fleetBossId: 99999,
+        role: "squad_member",
+      });
+      vi.mocked(mockEsi.getCharacter).mockResolvedValueOnce({
+        name: "Fleet Boss",
+        corporationId: 98765,
+      });
+
+      await service.create(12345, "access-token", "YOUTUBE", {
+        operatorOverride: true,
+      });
+
+      const db = (await import("@/lib/db")).default;
+      expect(db.session.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            characterId: 12345,
+            role: SessionRole.LINE_MEMBER,
+          }),
+        })
+      );
+    });
+
     it("throws ForbiddenError for wing_commander and squad_commander roles", async () => {
       for (const role of ["wing_commander", "squad_commander"] as const) {
         vi.mocked(mockEsi.getFleetMembership).mockResolvedValueOnce({

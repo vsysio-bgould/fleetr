@@ -62,26 +62,37 @@ export async function POST(
       findSession(),
       db.fleet.findUnique({
         where: { id: fleetId },
-        select: { battleVolumePercent: true, downvoteDeletePercent: true },
+        select: {
+          battleVolumePercent: true,
+          downvoteDeletePercent: true,
+          disbandedAt: true,
+          expiresAt: true,
+        },
       }),
     ]);
 
-    if (!session || !fleet || session.expiresAt < new Date()) {
+    const user = await db.user.findUnique({
+      where: { characterId },
+      select: { characterName: true, isOperator: true },
+    });
+    const isOperator = user?.isOperator ?? false;
+
+    if (
+      !fleet ||
+      fleet.disbandedAt ||
+      (fleet.expiresAt && fleet.expiresAt < new Date()) ||
+      (!isOperator && (!session || session.expiresAt < new Date()))
+    ) {
       return NextResponse.json(
         { error: { code: "FORBIDDEN", message: "No active session for this fleet" } },
         { status: 403 }
       );
     }
 
-    const user = await db.user.findUnique({
-      where: { characterId },
-      select: { characterName: true },
-    });
-
     return NextResponse.json({
       characterId,
       characterName: user?.characterName ?? "Unknown",
-      role: session.role,
+      role: isOperator ? "FLEET_BOSS" : session?.role,
       fleetId,
       battleVolumePercent: fleet.battleVolumePercent,
       downvoteDeletePercent: fleet.downvoteDeletePercent,

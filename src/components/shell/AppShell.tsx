@@ -9,10 +9,19 @@ interface Props {
   fleetId: string;
   fleetName: string;
   fcName: string;
+  isOperator: boolean;
+  activeFleets: Array<{ id: string; name: string; bossName: string }>;
   children: React.ReactNode;
 }
 
-export function AppShell({ fleetId, fleetName, fcName, children }: Props) {
+export function AppShell({
+  fleetId,
+  fleetName,
+  fcName,
+  isOperator,
+  activeFleets,
+  children,
+}: Props) {
   return (
     <div
       className="flex flex-col h-screen w-screen overflow-hidden"
@@ -20,7 +29,13 @@ export function AppShell({ fleetId, fleetName, fcName, children }: Props) {
         background: "radial-gradient(ellipse at 20% 40%, #0e1929 0%, #0b0f14 60%, #060a0f 100%)",
       }}
     >
-      <FleetHeader fleetName={fleetName} fcName={fcName} />
+      <FleetHeader
+        fleetId={fleetId}
+        fleetName={fleetName}
+        fcName={fcName}
+        isOperator={isOperator}
+        activeFleets={activeFleets}
+      />
       <div className="flex flex-1 min-h-0">
         <AppSidebar fleetId={fleetId} />
         <div className="flex-1 flex flex-col min-w-0">

@@ -1,28 +1,98 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useFleet } from "@/contexts/FleetContext";
 import { ConnectionPill } from "@/components/ConnectionPill";
 import { InstructionsDialog } from "@/components/InstructionsButton";
 import { LogoutButton } from "@/components/LogoutButton";
 
 interface Props {
+  fleetId: string;
   fleetName: string;
   fcName: string;
+  isOperator: boolean;
+  activeFleets: Array<{ id: string; name: string; bossName: string }>;
 }
 
-export function FleetHeader({ fleetName, fcName }: Props) {
+export function FleetHeader({
+  fleetId,
+  fleetName,
+  fcName,
+  isOperator,
+  activeFleets,
+}: Props) {
   const { state, connection } = useFleet();
   const { nowPlaying, members } = state;
   const memberCount = Object.keys(members).length;
   const [helpOpen, setHelpOpen] = useState(false);
+  const [currentEveFleetId, setCurrentEveFleetId] = useState<string | null>(null);
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!isOperator) return;
+    let cancelled = false;
+
+    async function refreshCurrentFleet() {
+      try {
+        const res = await fetch("/api/v1/users/me/current-fleet", {
+          cache: "no-store",
+        });
+        if (!res.ok) return;
+        const body = await res.json();
+        if (cancelled) return;
+        setCurrentEveFleetId(body.data?.fleetrFleetId ?? null);
+      } catch {
+        if (!cancelled) setCurrentEveFleetId(null);
+      }
+    }
+
+    void refreshCurrentFleet();
+    const timer = window.setInterval(refreshCurrentFleet, 60_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [isOperator]);
+
+  function handleFleetChange(nextFleetId: string) {
+    if (nextFleetId && nextFleetId !== fleetId) {
+      router.push(`/fleet/${nextFleetId}`);
+    }
+  }
 
   return (
     <header className="flex items-center h-12 px-4 bg-[#0b0f14] border-b border-[#1f2a36] shrink-0 gap-4">
       {/* Left: fleet identity */}
-      <div className="flex flex-col justify-center min-w-0 w-48 shrink-0">
-        <span className="text-sm font-semibold text-[#e6edf3] truncate">{fleetName}</span>
-        <span className="text-[11px] text-[#9aa4b2] truncate">Boss: {fcName}</span>
+      <div className="flex flex-col justify-center min-w-0 w-56 shrink-0">
+        {isOperator && activeFleets.length > 0 ? (
+          <select
+            value={fleetId}
+            onChange={(event) => handleFleetChange(event.target.value)}
+            aria-label="Switch active Fleetr fleet"
+            className={`h-7 w-full rounded border bg-[#0f151d] px-2 text-sm font-semibold text-[#e6edf3] outline-none transition-colors hover:border-[#3fa7ff] focus:border-[#3fa7ff] ${
+              currentEveFleetId === fleetId ? "border-[#34d399]" : "border-[#1f2a36]"
+            }`}
+          >
+            {activeFleets.map((fleet) => (
+              <option key={fleet.id} value={fleet.id}>
+                {fleet.id === currentEveFleetId
+                  ? `* ${fleet.name} (current EVE fleet)`
+                  : fleet.name}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <span className="text-sm font-semibold text-[#e6edf3] truncate">{fleetName}</span>
+        )}
+        <span className="text-[11px] text-[#9aa4b2] truncate">
+          Boss: {fcName}
+          {isOperator
+            ? currentEveFleetId === fleetId
+              ? " | Operator | Current EVE fleet"
+              : " | Operator"
+            : ""}
+        </span>
       </div>
 
       {/* Center: now playing */}

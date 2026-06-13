@@ -33,7 +33,8 @@ export class FleetService {
   async create(
     creatorCharacterId: number,
     accessToken: string,
-    mediaSource: MediaSource = "YOUTUBE"
+    mediaSource: MediaSource = "YOUTUBE",
+    options: { operatorOverride?: boolean } = {}
   ): Promise<FleetCreated> {
     const membership = await this.esiClient.getFleetMembership(
       creatorCharacterId,
@@ -47,7 +48,7 @@ export class FleetService {
     const isFleetBoss = membership.fleetBossId === creatorCharacterId;
     const isFleetCommander = membership.role === "fleet_commander";
 
-    if (!isFleetBoss && !isFleetCommander) {
+    if (!options.operatorOverride && !isFleetBoss && !isFleetCommander) {
       throw new ForbiddenError(
         "You must be the Fleet Boss or Fleet Commander to create a Fleetr fleet"
       );
@@ -91,7 +92,11 @@ export class FleetService {
       data: {
         fleetId: fleet.id,
         characterId: creatorCharacterId,
-        role: isFleetBoss ? "FLEET_BOSS" : "FLEET_COMMANDER",
+        role: isFleetBoss
+          ? "FLEET_BOSS"
+          : isFleetCommander
+            ? "FLEET_COMMANDER"
+            : "LINE_MEMBER",
         grantedScopes: [],
         expiresAt: sessionExpiry,
       },

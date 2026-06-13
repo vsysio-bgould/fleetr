@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import db from "@/lib/db";
 import { FleetShell } from "@/components/FleetShell";
+import type { SessionRole } from "@prisma/client";
 
 interface Props {
   children: React.ReactNode;
@@ -19,7 +20,12 @@ export default async function FleetLayout({ children, params }: Props) {
     select: {
       characterId: true,
       expiresAt: true,
-      character: { select: { esiToken: { select: { scopes: true } } } },
+      character: {
+        select: {
+          isOperator: true,
+          esiToken: { select: { scopes: true } },
+        },
+      },
     },
   });
 
@@ -28,8 +34,9 @@ export default async function FleetLayout({ children, params }: Props) {
   }
 
   const characterId = apiToken.characterId;
+  const isOperator = apiToken.character.isOperator;
 
-  const [session, fleet] = await Promise.all([
+  const [session, fleet, activeFleets] = await Promise.all([
     db.session.findUnique({
       where: { fleetId_characterId: { fleetId, characterId } },
       select: { role: true, expiresAt: true, grantedScopes: true },
@@ -44,9 +51,23 @@ export default async function FleetLayout({ children, params }: Props) {
         fc: { select: { characterName: true } },
       },
     }),
+    isOperator
+      ? db.fleet.findMany({
+          where: {
+            disbandedAt: null,
+            OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+          },
+          select: {
+            id: true,
+            name: true,
+            fc: { select: { characterName: true } },
+          },
+          orderBy: { createdAt: "desc" },
+        })
+      : Promise.resolve([]),
   ]);
 
-  if (!session || session.expiresAt < new Date()) {
+  if ((!session || session.expiresAt < new Date()) && !isOperator) {
     redirect("/login");
   }
 
@@ -57,16 +78,25 @@ export default async function FleetLayout({ children, params }: Props) {
   const partyKitHost = process.env.NEXT_PUBLIC_PARTYKIT_HOST ?? "localhost:1999";
   const grantedScopes = Array.from(
     new Set([
-      ...((session.grantedScopes as string[]) ?? []),
+      ...(((session?.grantedScopes as string[] | undefined) ?? [])),
       ...(((apiToken.character.esiToken?.scopes as string[] | undefined) ?? [])),
     ])
   );
+  const effectiveRole: SessionRole = isOperator
+    ? "FLEET_BOSS"
+    : session?.role ?? "LINE_MEMBER";
 
   return (
     <FleetShell
       fleetId={fleetId}
       characterId={characterId}
-      role={session.role}
+      role={effectiveRole}
+      isOperator={isOperator}
+      activeFleets={activeFleets.map((activeFleet) => ({
+        id: activeFleet.id,
+        name: activeFleet.name,
+        bossName: activeFleet.fc.characterName,
+      }))}
       grantedScopes={grantedScopes}
       mediaSource={fleet.mediaSource}
       battleVolumePercent={fleet.battleVolumePercent}

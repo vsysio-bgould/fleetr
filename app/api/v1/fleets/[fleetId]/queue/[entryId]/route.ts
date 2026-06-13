@@ -6,7 +6,6 @@ import { YouTubeClient } from "@/infra/media/YouTubeClient";
 import { SoundCloudClient } from "@/infra/media/SoundCloudClient";
 import { ok, noContent, errorResponse } from "@/lib/api-response";
 import { ValidationError } from "@/lib/errors";
-import { hasFleetControl } from "@/lib/roles";
 
 const reorderSchema = z.object({
   position: z.number().positive(),
@@ -19,7 +18,7 @@ export async function DELETE(
   try {
     const { fleetId, entryId } = await Promise.resolve(params);
     const ctx = await requireSession(req, fleetId);
-    const isFC = hasFleetControl(ctx.role);
+    const isFC = ctx.isOperator || ctx.role !== "LINE_MEMBER";
 
     const service = new QueueService(new YouTubeClient(), new SoundCloudClient());
     await service.remove(fleetId, entryId, ctx.characterId, isFC);

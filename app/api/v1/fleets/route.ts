@@ -7,6 +7,7 @@ import { EsiTokenStore } from "@/infra/esi/EsiTokenStore";
 import { created, errorResponse } from "@/lib/api-response";
 import { ValidationError } from "@/lib/errors";
 import { rateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import db from "@/lib/db";
 
 const createSchema = z.object({
   mediaSource: z.enum(["YOUTUBE", "SOUNDCLOUD"]).default("YOUTUBE"),
@@ -33,10 +34,15 @@ export async function POST(req: NextRequest) {
     }
 
     const service = new FleetService(esiClient);
+    const user = await db.user.findUnique({
+      where: { characterId },
+      select: { isOperator: true },
+    });
     const fleet = await service.create(
       characterId,
       esiToken.accessToken,
-      parsed.data.mediaSource
+      parsed.data.mediaSource,
+      { operatorOverride: user?.isOperator ?? false }
     );
 
     return created(fleet);
