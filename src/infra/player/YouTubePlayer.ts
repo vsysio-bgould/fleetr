@@ -159,8 +159,14 @@ export class YouTubePlayer implements IEmbedPlayer {
   mute(): void { this.player?.mute(); }
   unmute(): void { this.player?.unMute(); }
   getCurrentTime(): number { return this.player?.getCurrentTime() ?? 0; }
-  setVolume(volume: number): void { this.player?.setVolume(volume); }
-  getVolume(): number | null { return this.player?.getVolume() ?? null; }
+  setVolume(volume: number): void {
+    const player = this.player as ({ setVolume?: (volume: number) => void } | null);
+    if (typeof player?.setVolume === "function") player.setVolume(volume);
+  }
+  getVolume(): number | null {
+    const player = this.player as ({ getVolume?: () => number } | null);
+    return typeof player?.getVolume === "function" ? player.getVolume() : null;
+  }
   seekTo(seconds: number): void { this.player?.seekTo(seconds, true); }
 
   onEnded(handler: () => void): void { this.endedHandler = handler; }

@@ -81,8 +81,8 @@ export class SoundCloudPlayer implements IEmbedPlayer {
 
   play(): void { this.widget?.play(); }
   pause(): void { this.widget?.pause(); }
-  mute(): void { this.widget?.setVolume(0); }
-  unmute(): void { this.widget?.setVolume(80); }
+  mute(): void { this.setVolume(0); }
+  unmute(): void { this.setVolume(80); }
   getCurrentTime(): number {
     let t = 0;
     this.widget?.getPosition((ms) => { t = ms / 1000; });
@@ -90,10 +90,11 @@ export class SoundCloudPlayer implements IEmbedPlayer {
   }
   setVolume(volume: number): void {
     this.lastKnownVolume = volume;
-    this.widget?.setVolume(volume);
+    if (typeof this.widget?.setVolume === "function") this.widget.setVolume(volume);
   }
   getVolume(): number | null {
-    this.widget?.getVolume((volume) => {
+    if (typeof this.widget?.getVolume !== "function") return this.lastKnownVolume;
+    this.widget.getVolume((volume) => {
       this.lastKnownVolume = volume;
     });
     return this.lastKnownVolume;
