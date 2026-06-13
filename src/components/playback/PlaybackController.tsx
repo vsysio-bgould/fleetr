@@ -9,10 +9,12 @@ interface UsePlaybackControllerOptions {
   mediaId: string | null;
   source: MediaSource;
   volume: number;
+  localVolume: number;
   battleVolumePercent: number;
   muted: boolean;
   mode: FleetMode;
   startedAt: string | null;
+  onLocalVolumeChange: (volume: number) => void;
 }
 
 interface PlaybackControllerReturn {
@@ -27,13 +29,16 @@ export function usePlaybackController({
   mediaId,
   source,
   volume,
+  localVolume,
   battleVolumePercent,
   muted,
   mode,
   startedAt,
+  onLocalVolumeChange,
 }: UsePlaybackControllerOptions): PlaybackControllerReturn {
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<IEmbedPlayer | null>(null);
+  const expectedVolumeRef = useRef(100);
   const [adPending, setAdPending] = useState(false);
   const [playerError, setPlayerError] = useState<PlayerError | null>(null);
 
@@ -71,11 +76,31 @@ export function usePlaybackController({
   // Sync effective volume: fleet volume × battle multiplier, respecting local mute
   useEffect(() => {
     const battleMultiplier = battleVolumePercent / 100;
+    const fleetMultiplier = volume / 100;
     const effective = muted
       ? 0
-      : Math.round(volume * (mode === "BATTLE" ? battleMultiplier : 1));
+      : Math.round(localVolume * fleetMultiplier * (mode === "BATTLE" ? battleMultiplier : 1));
+    expectedVolumeRef.current = effective;
     playerRef.current?.setVolume(effective);
-  }, [volume, battleVolumePercent, muted, mode]);
+  }, [volume, localVolume, battleVolumePercent, muted, mode]);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      if (muted) return;
+      const playerVolume = playerRef.current?.getVolume();
+      if (playerVolume === null || playerVolume === undefined) return;
+      if (Math.abs(playerVolume - expectedVolumeRef.current) <= 1) return;
+
+      const battleMultiplier = mode === "BATTLE" ? battleVolumePercent / 100 : 1;
+      const fleetMultiplier = volume / 100;
+      const combinedMultiplier = fleetMultiplier * battleMultiplier;
+      const nextLocalVolume =
+        combinedMultiplier > 0 ? Math.round(playerVolume / combinedMultiplier) : playerVolume;
+      onLocalVolumeChange(clampVolume(nextLocalVolume));
+    }, 1000);
+
+    return () => window.clearInterval(interval);
+  }, [volume, battleVolumePercent, muted, mode, onLocalVolumeChange]);
 
   const catchUp = useCallback(() => {
     if (!startedAt || !playerRef.current) return;
@@ -84,4 +109,8 @@ export function usePlaybackController({
   }, [startedAt]);
 
   return { containerRef, catchUp, adPending, playerError };
+}
+
+function clampVolume(volume: number): number {
+  return Math.min(100, Math.max(0, Math.round(volume)));
 }

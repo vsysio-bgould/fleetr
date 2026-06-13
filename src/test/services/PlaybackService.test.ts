@@ -39,6 +39,7 @@ describe("PlaybackService", () => {
   let service: PlaybackService;
 
   beforeEach(() => {
+    vi.useRealTimers();
     vi.clearAllMocks();
     service = new PlaybackService();
   });
@@ -208,6 +209,62 @@ describe("PlaybackService", () => {
       expect(db.playback.upsert).toHaveBeenCalledWith(
         expect.objectContaining({
           update: expect.objectContaining({ queueEntryId: "high" }),
+        })
+      );
+    });
+
+    it("remembers and restores playback position when switching back to a mode", async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-06-13T00:10:42.000Z"));
+      const db = (await import("@/lib/db")).default;
+      const { queueAdvanceQueue } = await import("@/lib/queue");
+      const { broadcastToFleet } = await import("@/lib/broadcast");
+
+      vi.mocked(db.fleet.findUnique).mockResolvedValueOnce({ mode: "BATTLE" } as never);
+      vi.mocked(db.playback.findUnique).mockResolvedValueOnce({
+        queueEntryId: "battle-entry",
+        startedAt: new Date("2026-06-13T00:10:00.000Z"),
+        cruiseQueueEntryId: "cruise-entry",
+        cruiseOffsetSeconds: 42,
+        battleQueueEntryId: null,
+        battleOffsetSeconds: 0,
+      } as never);
+      vi.mocked(db.queueEntry.findUnique).mockResolvedValueOnce({
+        id: "cruise-entry",
+        mediaId: "cruise-media",
+        title: "Cruise Track",
+        thumbnailUrl: null,
+        duration: 120,
+        fleetId: "fleet-uuid",
+        queue: "CRUISE",
+        removedAt: null,
+      } as never);
+
+      await service.setMode("fleet-uuid", "CRUISE", 12345);
+
+      expect(db.playback.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          update: expect.objectContaining({
+            queueEntryId: "cruise-entry",
+            battleQueueEntryId: "battle-entry",
+            battleOffsetSeconds: 42,
+          }),
+        })
+      );
+      expect(queueAdvanceQueue.add).toHaveBeenCalledWith(
+        "advance",
+        { fleetId: "fleet-uuid" },
+        expect.objectContaining({ delay: 78000 })
+      );
+      expect(broadcastToFleet).toHaveBeenCalledWith(
+        "fleet-uuid",
+        expect.objectContaining({
+          type: "fleet:mode-changed",
+          mode: "CRUISE",
+          nowPlaying: expect.objectContaining({
+            queueEntryId: "cruise-entry",
+            startedAt: "2026-06-13T00:10:00.000Z",
+          }),
         })
       );
     });

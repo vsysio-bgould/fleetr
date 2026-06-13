@@ -16,17 +16,19 @@ function errorMessage(code: string): string {
 }
 
 export function NowPlaying() {
-  const { state, muted, mediaSource } = useFleet();
+  const { state, muted, mediaSource, localVolume, setLocalVolume } = useFleet();
   const { nowPlaying, mode, volume, battleVolumePercent } = state;
 
   const { containerRef, catchUp, adPending, playerError } = usePlaybackController({
     mediaId: nowPlaying?.mediaId ?? null,
     source: mediaSource,
     volume,
+    localVolume,
     battleVolumePercent,
     muted,
     mode,
     startedAt: nowPlaying?.startedAt ?? null,
+    onLocalVolumeChange: setLocalVolume,
   });
 
   return (

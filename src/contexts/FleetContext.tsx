@@ -269,6 +269,8 @@ interface FleetContextValue {
   send: (msg: ClientMessage) => void;
   muted: boolean;
   toggleMute: () => void;
+  localVolume: number;
+  setLocalVolume: (volume: number) => void;
 }
 
 const FleetContext = createContext<FleetContextValue | null>(null);
@@ -292,6 +294,7 @@ interface ProviderProps {
 }
 
 const RECONNECT_DELAY_MS = 3000;
+const LOCAL_VOLUME_STORAGE_KEY = "fleetr:local-volume";
 
 function buildPartyKitUrl(host: string, fleetId: string, token: string): string {
   const protocolMatch = host.match(/^wss?:\/\//);
@@ -317,6 +320,7 @@ export function FleetProvider({
   const [state, dispatch] = useReducer(reducer, initialState);
   const [connection, setConnection] = useState<ConnectionStatus>("reconnecting");
   const [muted, setMuted] = useState(false);
+  const [localVolume, setLocalVolumeState] = useState(100);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const unmountedRef = useRef(false);
@@ -328,6 +332,13 @@ export function FleetProvider({
       downvoteDeletePercent,
     });
   }, [battleVolumePercent, downvoteDeletePercent]);
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem(LOCAL_VOLUME_STORAGE_KEY);
+    if (saved === null) return;
+    const parsed = Number(saved);
+    if (Number.isFinite(parsed)) setLocalVolumeState(clampVolume(parsed));
+  }, []);
 
   // Queue contents are not part of sync:state (party-messages contract) —
   // fetch over HTTP on load, then apply incremental queue:* messages.
@@ -479,6 +490,12 @@ export function FleetProvider({
     setMuted((m) => !m);
   }
 
+  function setLocalVolume(volume: number) {
+    const next = clampVolume(volume);
+    setLocalVolumeState(next);
+    window.localStorage.setItem(LOCAL_VOLUME_STORAGE_KEY, String(next));
+  }
+
   function hasScope(scope: string): boolean {
     return grantedScopes.includes(scope);
   }
@@ -497,9 +514,15 @@ export function FleetProvider({
         send,
         muted,
         toggleMute,
+        localVolume,
+        setLocalVolume,
       }}
     >
       {children}
     </FleetContext.Provider>
   );
+}
+
+function clampVolume(volume: number): number {
+  return Math.min(100, Math.max(0, Math.round(volume)));
 }

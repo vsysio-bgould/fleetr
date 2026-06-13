@@ -301,6 +301,10 @@ model Playback {
     queueEntryId String?   // null = no track set yet
     mediaId      String?   // denormalized platform-specific ID for fast embed construction
     startedAt    DateTime? // when the fleet reference was set to this track
+    cruiseQueueEntryId String?
+    cruiseOffsetSeconds Int @default(0)
+    battleQueueEntryId String?
+    battleOffsetSeconds Int @default(0)
     updatedAt    DateTime  @updatedAt
 
     fleet      Fleet       @relation(fields: [fleetId], references: [id])

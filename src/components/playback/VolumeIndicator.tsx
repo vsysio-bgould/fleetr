@@ -7,21 +7,25 @@ import { Tooltip } from "@/components/ui/Tooltip";
 const VOLUME_SEND_INTERVAL_MS = 1000;
 
 export function VolumeIndicator() {
-  const { state, send, myRole } = useFleet();
-  const volume = state.volume;
-  const [draftVolume, setDraftVolume] = useState(volume);
+  const { state, send, myRole, localVolume, setLocalVolume } = useFleet();
   const lastSentAtRef = useRef(0);
   const pendingVolumeRef = useRef<number | null>(null);
   const sendTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isFc = myRole === "FLEET_COMMANDER" || myRole === "FC_DELEGATE";
+  const controlVolume = isFc ? state.volume : localVolume;
+  const [draftVolume, setDraftVolume] = useState(controlVolume);
+  const draftFleetVolume = isFc ? draftVolume : state.volume;
+  const draftLocalVolume = isFc ? localVolume : draftVolume;
   const battleMultiplier = state.battleVolumePercent / 100;
   const effectiveVolume = Math.round(
-    draftVolume * (state.mode === "BATTLE" ? battleMultiplier : 1)
+    draftLocalVolume *
+      (draftFleetVolume / 100) *
+      (state.mode === "BATTLE" ? battleMultiplier : 1)
   );
 
   useEffect(() => {
-    setDraftVolume(volume);
-  }, [volume]);
+    setDraftVolume(controlVolume);
+  }, [controlVolume]);
 
   useEffect(() => {
     return () => {
@@ -38,7 +42,10 @@ export function VolumeIndicator() {
   };
 
   const scheduleVolumeSend = (v: number) => {
-    if (!isFc) return;
+    if (!isFc) {
+      setLocalVolume(v);
+      return;
+    }
     pendingVolumeRef.current = v;
 
     const elapsed = Date.now() - lastSentAtRef.current;
@@ -62,15 +69,17 @@ export function VolumeIndicator() {
   return (
     <div className="flex items-center gap-2">
       <span className="text-xs text-fleet-text-muted">
-        {state.mode === "BATTLE" ? "Battle Vol" : "Vol"}
+        {isFc ? "Fleet Vol" : "Local Max"}
       </span>
-      <Tooltip content="Set fleet-wide volume" side="top">
+      <Tooltip
+        content={isFc ? "Set fleet-wide volume multiplier" : "Set your local maximum volume"}
+        side="top"
+      >
         <input
           type="range"
           min={0}
           max={100}
           value={draftVolume}
-          disabled={!isFc}
           onChange={(e) => {
             const next = Number(e.target.value);
             setDraftVolume(next);

@@ -13,6 +13,7 @@ declare namespace YT {
     getCurrentTime(): number;
     seekTo(seconds: number, allowSeekAhead: boolean): void;
     setVolume(volume: number): void;
+    getVolume(): number;
     destroy(): void;
   }
   interface PlayerOptions {
@@ -159,6 +160,7 @@ export class YouTubePlayer implements IEmbedPlayer {
   unmute(): void { this.player?.unMute(); }
   getCurrentTime(): number { return this.player?.getCurrentTime() ?? 0; }
   setVolume(volume: number): void { this.player?.setVolume(volume); }
+  getVolume(): number | null { return this.player?.getVolume() ?? null; }
   seekTo(seconds: number): void { this.player?.seekTo(seconds, true); }
 
   onEnded(handler: () => void): void { this.endedHandler = handler; }

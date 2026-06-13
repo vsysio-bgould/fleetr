@@ -20,6 +20,7 @@ export interface IEmbedPlayer {
 
   /** 0–100 */
   setVolume(volume: number): void;
+  getVolume(): number | null;
   mute(): void;
   unmute(): void;
 

@@ -27,6 +27,11 @@ interface PlayableEntry {
   duration: number | null;
 }
 
+interface ModeBookmark {
+  queueEntryId: string | null;
+  offsetSeconds: number;
+}
+
 const PLAYABLE_SELECT = {
   id: true,
   mediaId: true,
@@ -145,15 +150,41 @@ export class PlaybackService {
       where: { id: fleetId },
       select: { mode: true },
     });
+    if (!previous) throw new NotFoundError("Fleet");
+
+    const currentPlayback = await db.playback.findUnique({
+      where: { fleetId },
+      select: {
+        queueEntryId: true,
+        startedAt: true,
+        cruiseQueueEntryId: true,
+        cruiseOffsetSeconds: true,
+        battleQueueEntryId: true,
+        battleOffsetSeconds: true,
+      },
+    });
+    const outgoingBookmark = this.createBookmark(currentPlayback);
+    const incomingBookmark = this.bookmarkForMode(mode, currentPlayback);
+
     await db.fleet.update({ where: { id: fleetId }, data: { mode } });
 
-    const topEntry = await this.topOfQueue(fleetId, mode);
+    const savedEntry = incomingBookmark.queueEntryId
+      ? await this.findPlayableEntry(fleetId, mode, incomingBookmark.queueEntryId)
+      : null;
+    const topEntry = savedEntry ?? await this.topOfQueue(fleetId, mode);
+    const offsetSeconds = savedEntry ? incomingBookmark.offsetSeconds : 0;
 
     let nowPlaying: FleetNowPlaying | null = null;
     if (topEntry) {
-      nowPlaying = await this.applyTrack(fleetId, topEntry);
+      nowPlaying = await this.applyTrack(fleetId, topEntry, {
+        offsetSeconds,
+        modeBookmark: { mode: previous.mode, bookmark: outgoingBookmark },
+      });
     } else {
-      await this.clearTrack(fleetId);
+      await this.clearTrack(fleetId, {
+        mode: previous.mode,
+        bookmark: outgoingBookmark,
+      });
     }
 
     const message = {
@@ -170,7 +201,7 @@ export class PlaybackService {
       data: {
         event: "fleet.mode-changed",
         actor: initiatedBy !== null ? String(initiatedBy) : "system",
-        payload: { fleetId, oldMode: previous?.mode ?? null, newMode: mode },
+        payload: { fleetId, oldMode: previous.mode, newMode: mode },
       },
     });
 
@@ -198,17 +229,31 @@ export class PlaybackService {
   /** Persist the reference track + schedule auto-advance. Does not broadcast. */
   private async applyTrack(
     fleetId: string,
-    entry: PlayableEntry
+    entry: PlayableEntry,
+    options: {
+      offsetSeconds?: number;
+      modeBookmark?: { mode: FleetMode; bookmark: ModeBookmark };
+    } = {}
   ): Promise<FleetNowPlaying> {
-    const startedAt = new Date();
+    const offsetSeconds = Math.max(0, Math.floor(options.offsetSeconds ?? 0));
+    const startedAt = new Date(Date.now() - offsetSeconds * 1000);
+    const bookmarkData = options.modeBookmark
+      ? this.bookmarkUpdate(options.modeBookmark.mode, options.modeBookmark.bookmark)
+      : {};
 
     await db.playback.upsert({
       where: { fleetId },
-      update: { queueEntryId: entry.id, mediaId: entry.mediaId, startedAt },
-      create: { fleetId, queueEntryId: entry.id, mediaId: entry.mediaId, startedAt },
+      update: { queueEntryId: entry.id, mediaId: entry.mediaId, startedAt, ...bookmarkData },
+      create: {
+        fleetId,
+        queueEntryId: entry.id,
+        mediaId: entry.mediaId,
+        startedAt,
+        ...bookmarkData,
+      },
     });
 
-    await this.scheduleAdvance(fleetId, entry.duration);
+    await this.scheduleAdvance(fleetId, entry.duration, offsetSeconds);
 
     return {
       queueEntryId: entry.id,
@@ -220,16 +265,69 @@ export class PlaybackService {
     };
   }
 
-  private async clearTrack(fleetId: string): Promise<void> {
+  private async clearTrack(
+    fleetId: string,
+    modeBookmark?: { mode: FleetMode; bookmark: ModeBookmark }
+  ): Promise<void> {
+    const bookmarkData = modeBookmark
+      ? this.bookmarkUpdate(modeBookmark.mode, modeBookmark.bookmark)
+      : {};
     await db.playback.upsert({
       where: { fleetId },
-      update: { queueEntryId: null, mediaId: null, startedAt: null },
-      create: { fleetId },
+      update: { queueEntryId: null, mediaId: null, startedAt: null, ...bookmarkData },
+      create: { fleetId, ...bookmarkData },
     });
     await this.cancelAdvance(fleetId);
   }
 
-  /** Top of a queue: votes desc, position asc — same order the queue UI shows. */
+  /** Snapshot the outgoing mode so switching back can resume near the same point. */
+  private createBookmark(
+    playback: { queueEntryId: string | null; startedAt: Date | null } | null
+  ): ModeBookmark {
+    if (!playback?.queueEntryId || !playback.startedAt) {
+      return { queueEntryId: null, offsetSeconds: 0 };
+    }
+    const offsetSeconds = Math.max(
+      0,
+      Math.floor((Date.now() - playback.startedAt.getTime()) / 1000)
+    );
+    return { queueEntryId: playback.queueEntryId, offsetSeconds };
+  }
+
+  private bookmarkForMode(
+    mode: FleetMode,
+    playback: {
+      cruiseQueueEntryId: string | null;
+      cruiseOffsetSeconds: number;
+      battleQueueEntryId: string | null;
+      battleOffsetSeconds: number;
+    } | null
+  ): ModeBookmark {
+    if (!playback) return { queueEntryId: null, offsetSeconds: 0 };
+    return mode === "CRUISE"
+      ? {
+          queueEntryId: playback.cruiseQueueEntryId,
+          offsetSeconds: playback.cruiseOffsetSeconds,
+        }
+      : {
+          queueEntryId: playback.battleQueueEntryId,
+          offsetSeconds: playback.battleOffsetSeconds,
+        };
+  }
+
+  private bookmarkUpdate(mode: FleetMode, bookmark: ModeBookmark) {
+    return mode === "CRUISE"
+      ? {
+          cruiseQueueEntryId: bookmark.queueEntryId,
+          cruiseOffsetSeconds: bookmark.offsetSeconds,
+        }
+      : {
+          battleQueueEntryId: bookmark.queueEntryId,
+          battleOffsetSeconds: bookmark.offsetSeconds,
+        };
+  }
+
+  /** Top of a queue: votes desc, position asc - same order the queue UI shows. */
   private async topOfQueue(fleetId: string, mode: FleetMode) {
     // FleetMode and QueueType share the same values (CRUISE | BATTLE)
     const queue = mode as string as QueueType;
@@ -246,15 +344,32 @@ export class PlaybackService {
     return entries[0];
   }
 
+  private async findPlayableEntry(
+    fleetId: string,
+    mode: FleetMode,
+    queueEntryId: string
+  ): Promise<PlayableEntry | null> {
+    const queue = mode as string as QueueType;
+    const entry = await db.queueEntry.findUnique({
+      where: { id: queueEntryId },
+      select: { ...PLAYABLE_SELECT, fleetId: true, queue: true, removedAt: true },
+    });
+    if (!entry || entry.fleetId !== fleetId || entry.queue !== queue || entry.removedAt) {
+      return null;
+    }
+    return entry;
+  }
+
   private async scheduleAdvance(
     fleetId: string,
-    durationSeconds: number | null
+    durationSeconds: number | null,
+    offsetSeconds = 0
   ): Promise<void> {
     await this.cancelAdvance(fleetId);
 
     if (!durationSeconds) return; // No duration = no auto-advance
 
-    const delayMs = durationSeconds * 1000;
+    const delayMs = Math.max(0, (durationSeconds - offsetSeconds) * 1000);
     await queueAdvanceQueue.add(
       "advance",
       { fleetId },

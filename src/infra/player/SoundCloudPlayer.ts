@@ -14,6 +14,7 @@ interface SCWidget {
   pause(): void;
   seekTo(ms: number): void;
   setVolume(volume: number): void;
+  getVolume(cb: (volume: number) => void): void;
   getPosition(cb: (ms: number) => void): void;
 }
 
@@ -33,6 +34,7 @@ export class SoundCloudPlayer implements IEmbedPlayer {
   private widget: SCWidget | null = null;
   private endedHandler: (() => void) | null = null;
   private errorHandler: ((error: PlayerError) => void) | null = null;
+  private lastKnownVolume: number | null = null;
 
   constructor(container: HTMLElement) {
     this.container = container;
@@ -86,7 +88,16 @@ export class SoundCloudPlayer implements IEmbedPlayer {
     this.widget?.getPosition((ms) => { t = ms / 1000; });
     return t;
   }
-  setVolume(volume: number): void { this.widget?.setVolume(volume); }
+  setVolume(volume: number): void {
+    this.lastKnownVolume = volume;
+    this.widget?.setVolume(volume);
+  }
+  getVolume(): number | null {
+    this.widget?.getVolume((volume) => {
+      this.lastKnownVolume = volume;
+    });
+    return this.lastKnownVolume;
+  }
   seekTo(seconds: number): void { this.widget?.seekTo(seconds * 1000); }
 
   onEnded(handler: () => void): void { this.endedHandler = handler; }
