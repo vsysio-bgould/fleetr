@@ -52,14 +52,21 @@ describe("queue-advance worker", () => {
       disbandedAt: null,
     } as never);
 
-    const job = makeJob({ fleetId: "fleet-uuid" }, "fleet-advance-fleet-uuid");
+    const job = makeJob(
+      { fleetId: "fleet-uuid", queueEntryId: "entry-uuid" },
+      "fleet-advance-fleet-uuid"
+    );
     await workerDef.process(job);
 
     expect(mockFetch).toHaveBeenCalledWith(
       "http://localhost:3000/api/v1/internal/fleets/fleet-uuid/playback",
       expect.objectContaining({
         method: "POST",
-        body: JSON.stringify({ advance: true, initiatedBy: null }),
+        body: JSON.stringify({
+          advance: true,
+          initiatedBy: null,
+          completedQueueEntryId: "entry-uuid",
+        }),
       })
     );
   });
@@ -92,7 +99,11 @@ describe("queue-advance worker", () => {
     expect(mockFetch).toHaveBeenCalledWith(
       expect.any(String),
       expect.objectContaining({
-        body: JSON.stringify({ advance: true, initiatedBy: null }),
+        body: JSON.stringify({
+          advance: true,
+          initiatedBy: null,
+          completedQueueEntryId: null,
+        }),
       })
     );
   });

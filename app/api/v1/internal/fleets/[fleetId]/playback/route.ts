@@ -20,13 +20,16 @@ export async function POST(
     }
 
     const body = await req.json();
-    const { queueEntryId, initiatedBy, broadcast, advance } = body;
+    const { queueEntryId, initiatedBy, broadcast, advance, completedQueueEntryId } = body;
 
     const service = new PlaybackService();
 
     let message;
     if (advance) {
-      const result = await service.advance(fleetId, initiatedBy, { broadcast });
+      const result = await service.advance(fleetId, initiatedBy, {
+        broadcast,
+        expectedQueueEntryId: completedQueueEntryId ?? null,
+      });
       message = result.message;
     } else if (queueEntryId === null || queueEntryId === undefined) {
       message = await service.clear(fleetId, { broadcast });

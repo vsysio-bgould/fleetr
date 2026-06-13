@@ -5,6 +5,7 @@ import logger from "@/lib/logger";
 
 interface QueueAdvancePayload {
   fleetId: string;
+  queueEntryId?: string;
 }
 
 const definition: WorkerDefinition<QueueAdvancePayload> = {
@@ -49,6 +50,7 @@ const definition: WorkerDefinition<QueueAdvancePayload> = {
       body: JSON.stringify({
         advance: true,
         initiatedBy: null,
+        completedQueueEntryId: job.data.queueEntryId ?? null,
       }),
     });
     if (!response.ok) {

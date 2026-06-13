@@ -15,6 +15,7 @@ interface UsePlaybackControllerOptions {
   mode: FleetMode;
   startedAt: string | null;
   onLocalVolumeChange: (volume: number) => void;
+  onEnded?: () => void;
 }
 
 interface PlaybackControllerReturn {
@@ -35,6 +36,7 @@ export function usePlaybackController({
   mode,
   startedAt,
   onLocalVolumeChange,
+  onEnded,
 }: UsePlaybackControllerOptions): PlaybackControllerReturn {
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<IEmbedPlayer | null>(null);
@@ -56,6 +58,10 @@ export function usePlaybackController({
       playerRef.current = null;
     };
   }, [source]);
+
+  useEffect(() => {
+    playerRef.current?.onEnded(() => onEnded?.());
+  }, [onEnded]);
 
   // Load new media whenever mediaId changes
   useEffect(() => {

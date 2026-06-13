@@ -7,14 +7,22 @@ import { VolumeIndicator } from "@/components/playback/VolumeIndicator";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { ModeToggle } from "./ModeToggle";
 import { MuteToggle } from "./MuteToggle";
+import { hasFleetControl } from "@/lib/roles";
+import { useCallback } from "react";
 
 interface Props {
   variant?: "panel" | "bar";
 }
 
 export function PlayerPanel({ variant = "panel" }: Props) {
-  const { state, muted, mediaSource, localVolume, setLocalVolume } = useFleet();
+  const { state, muted, mediaSource, localVolume, setLocalVolume, send, myRole } = useFleet();
   const { nowPlaying, mode, volume, battleVolumePercent } = state;
+  const canControl = hasFleetControl(myRole);
+  const nowPlayingId = nowPlaying?.queueEntryId ?? null;
+  const handleEnded = useCallback(() => {
+    if (!canControl || !nowPlayingId) return;
+    send({ type: "fleet:advance", completedQueueEntryId: nowPlayingId });
+  }, [canControl, nowPlayingId, send]);
 
   const { containerRef, catchUp, adPending, playerError } = usePlaybackController({
     mediaId: nowPlaying?.mediaId ?? null,
@@ -26,6 +34,7 @@ export function PlayerPanel({ variant = "panel" }: Props) {
     mode,
     startedAt: nowPlaying?.startedAt ?? null,
     onLocalVolumeChange: setLocalVolume,
+    onEnded: handleEnded,
   });
 
   if (variant === "bar") {

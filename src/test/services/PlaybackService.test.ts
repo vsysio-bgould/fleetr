@@ -73,7 +73,7 @@ describe("PlaybackService", () => {
 
       expect(queueAdvanceQueue.add).toHaveBeenCalledWith(
         "advance",
-        { fleetId: "fleet-uuid" },
+        { fleetId: "fleet-uuid", queueEntryId: "entry-uuid" },
         expect.objectContaining({
           delay: 212000,
           jobId: "fleet-advance-fleet-uuid",
@@ -253,7 +253,7 @@ describe("PlaybackService", () => {
       );
       expect(queueAdvanceQueue.add).toHaveBeenCalledWith(
         "advance",
-        { fleetId: "fleet-uuid" },
+        { fleetId: "fleet-uuid", queueEntryId: "cruise-entry" },
         expect.objectContaining({ delay: 78000 })
       );
       expect(broadcastToFleet).toHaveBeenCalledWith(
@@ -275,6 +275,9 @@ describe("PlaybackService", () => {
       const db = (await import("@/lib/db")).default;
 
       vi.mocked(db.fleet.findUnique).mockResolvedValueOnce({ mode: "CRUISE" } as never);
+      vi.mocked(db.playback.findUnique).mockResolvedValueOnce({
+        queueEntryId: "current-entry",
+      } as never);
       vi.mocked(db.queueEntry.findMany).mockResolvedValueOnce([
         {
           id: "next-entry",
@@ -301,11 +304,45 @@ describe("PlaybackService", () => {
       expect(result.nowPlaying).toBe(true);
     });
 
+    it("ignores stale advance requests for tracks that are no longer current", async () => {
+      const db = (await import("@/lib/db")).default;
+
+      vi.mocked(db.fleet.findUnique).mockResolvedValueOnce({ mode: "CRUISE" } as never);
+      vi.mocked(db.playback.findUnique).mockResolvedValueOnce({
+        queueEntryId: "new-current-entry",
+        mediaId: "new-media-id",
+        startedAt: new Date("2026-06-13T00:00:00.000Z"),
+        queueEntry: {
+          title: "New Current",
+          thumbnailUrl: null,
+          duration: 120,
+        },
+      } as never);
+
+      const result = await service.advance("fleet-uuid", null, {
+        expectedQueueEntryId: "old-ended-entry",
+      });
+
+      expect(result.nowPlaying).toBe(true);
+      expect(result.message).toEqual({
+        type: "fleet:now-playing",
+        payload: expect.objectContaining({
+          queueEntryId: "new-current-entry",
+          mediaId: "new-media-id",
+        }),
+      });
+      expect(db.queueEntry.findMany).not.toHaveBeenCalled();
+      expect(db.playback.upsert).not.toHaveBeenCalled();
+    });
+
     it("clears playback and broadcasts null when queue is empty", async () => {
       const db = (await import("@/lib/db")).default;
       const { broadcastToFleet } = await import("@/lib/broadcast");
 
       vi.mocked(db.fleet.findUnique).mockResolvedValueOnce({ mode: "CRUISE" } as never);
+      vi.mocked(db.playback.findUnique).mockResolvedValueOnce({
+        queueEntryId: "current-entry",
+      } as never);
       vi.mocked(db.queueEntry.findMany).mockResolvedValueOnce([] as never);
 
       const result = await service.advance("fleet-uuid", null);

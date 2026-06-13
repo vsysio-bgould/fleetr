@@ -369,7 +369,12 @@ export default class FleetServer implements Party.Server {
         break;
       case "fleet:advance":
         path = "playback";
-        body = { advance: true, initiatedBy: state.characterId, broadcast: false };
+        body = {
+          advance: true,
+          initiatedBy: state.characterId,
+          broadcast: false,
+          completedQueueEntryId: message.completedQueueEntryId ?? null,
+        };
         break;
       case "fleet:set-mode":
         path = "mode";

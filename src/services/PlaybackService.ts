@@ -108,7 +108,7 @@ export class PlaybackService {
   async advance(
     fleetId: string,
     initiatedBy: number | null,
-    options: { broadcast?: boolean } = {}
+    options: { broadcast?: boolean; expectedQueueEntryId?: string | null } = {}
   ): Promise<{ nowPlaying: boolean; message: ServerMessage }> {
     const fleet = await db.fleet.findUnique({
       where: { id: fleetId },
@@ -118,8 +118,24 @@ export class PlaybackService {
 
     const current = await db.playback.findUnique({
       where: { fleetId },
-      select: { queueEntryId: true },
+      select: {
+        queueEntryId: true,
+        mediaId: true,
+        startedAt: true,
+        queueEntry: {
+          select: { title: true, thumbnailUrl: true, duration: true },
+        },
+      },
     });
+    if (
+      options.expectedQueueEntryId &&
+      current?.queueEntryId !== options.expectedQueueEntryId
+    ) {
+      return {
+        nowPlaying: Boolean(current?.queueEntryId),
+        message: this.currentPlaybackMessage(current),
+      };
+    }
     const nextEntry = await this.topOfQueue(fleetId, fleet.mode, current?.queueEntryId ?? null);
 
     if (!nextEntry) {
@@ -269,7 +285,7 @@ export class PlaybackService {
       },
     });
 
-    await this.scheduleAdvance(fleetId, entry.duration, offsetSeconds);
+    await this.scheduleAdvance(fleetId, entry.id, entry.duration, offsetSeconds);
 
     return {
       queueEntryId: entry.id,
@@ -394,6 +410,7 @@ export class PlaybackService {
 
   private async scheduleAdvance(
     fleetId: string,
+    queueEntryId: string,
     durationSeconds: number | null,
     offsetSeconds = 0
   ): Promise<void> {
@@ -404,7 +421,7 @@ export class PlaybackService {
     const delayMs = Math.max(0, (durationSeconds - offsetSeconds) * 1000);
     await queueAdvanceQueue.add(
       "advance",
-      { fleetId },
+      { fleetId, queueEntryId },
       {
         delay: delayMs,
         jobId: ADVANCE_JOB_ID(fleetId),
@@ -418,5 +435,30 @@ export class PlaybackService {
     if (job) {
       await job.remove().catch(() => null);
     }
+  }
+
+  private currentPlaybackMessage(
+    playback: {
+      queueEntryId: string | null;
+      mediaId: string | null;
+      startedAt: Date | null;
+      queueEntry: { title: string; thumbnailUrl: string | null; duration: number | null } | null;
+    } | null
+  ): ServerMessage {
+    if (!playback?.queueEntryId || !playback.mediaId || !playback.startedAt || !playback.queueEntry) {
+      return { type: "fleet:now-playing", payload: null };
+    }
+
+    return {
+      type: "fleet:now-playing",
+      payload: {
+        queueEntryId: playback.queueEntryId,
+        mediaId: playback.mediaId,
+        title: playback.queueEntry.title,
+        thumbnailUrl: playback.queueEntry.thumbnailUrl,
+        duration: playback.queueEntry.duration,
+        startedAt: playback.startedAt.toISOString(),
+      },
+    };
   }
 }

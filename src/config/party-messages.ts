@@ -120,7 +120,7 @@ export type ClientMessage =
      * Equivalent to fleet:set-track with the next entry's ID.
      * Cancels the current auto-advance job.
      */
-    | { type: 'fleet:advance' }
+    | { type: 'fleet:advance'; completedQueueEntryId?: string | null }
 
     /**
      * FC sets fleet-wide volume (0–100). Synced to all connected clients.
