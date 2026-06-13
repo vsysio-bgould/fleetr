@@ -8,6 +8,7 @@ import {
   AlreadyVotedError,
   PlatformMismatchError,
 } from "@/lib/errors";
+import { PlaybackService } from "@/services/PlaybackService";
 
 vi.mock("@/lib/db", () => ({
   default: {
@@ -31,6 +32,14 @@ vi.mock("@/lib/db", () => ({
       delete: vi.fn().mockResolvedValue({}),
       count: vi.fn().mockResolvedValue(1),
     },
+    queueDownvote: {
+      create: vi.fn().mockResolvedValue({}),
+      delete: vi.fn().mockResolvedValue({}),
+      count: vi.fn().mockResolvedValue(1),
+    },
+    session: {
+      count: vi.fn().mockResolvedValue(10),
+    },
     auditLog: {
       create: vi.fn().mockResolvedValue({}),
     },
@@ -38,6 +47,7 @@ vi.mock("@/lib/db", () => ({
 }));
 
 vi.mock("@/lib/broadcast", () => ({ broadcastToFleet: vi.fn().mockResolvedValue(undefined) }));
+vi.mock("@/lib/party", () => ({ getConnectedViewerCount: vi.fn().mockResolvedValue(2) }));
 
 vi.mock("@/lib/queue", () => ({
   queueAdvanceQueue: {
@@ -266,6 +276,44 @@ describe("QueueService", () => {
       expect(entries[1].id).toBe("e2"); // 1 vote
     });
 
+    it("pushes downvoted entries lower by net score", async () => {
+      const db = (await import("@/lib/db")).default;
+      vi.mocked(db.queueEntry.findMany).mockResolvedValueOnce([
+        {
+          id: "up-and-down",
+          fleetId: "fleet-uuid",
+          queue: "CRUISE",
+          mediaUrl: "u1",
+          mediaId: "m1",
+          title: "T1",
+          thumbnailUrl: null,
+          duration: 100,
+          submittedBy: 1,
+          position: 1.0,
+          votes: [{ characterId: 1 }, { characterId: 2 }],
+          downvotes: [{ characterId: 3 }, { characterId: 4 }],
+        },
+        {
+          id: "clean",
+          fleetId: "fleet-uuid",
+          queue: "CRUISE",
+          mediaUrl: "u2",
+          mediaId: "m2",
+          title: "T2",
+          thumbnailUrl: null,
+          duration: 200,
+          submittedBy: 2,
+          position: 2.0,
+          votes: [{ characterId: 5 }],
+          downvotes: [],
+        },
+      ] as never);
+
+      const entries = await service.list("fleet-uuid", "CRUISE", null);
+      expect(entries[0].id).toBe("clean");
+      expect(entries[1].id).toBe("up-and-down");
+    });
+
     it("sets hasVoted correctly for the requesting character", async () => {
       const db = (await import("@/lib/db")).default;
       vi.mocked(db.queueEntry.findMany).mockResolvedValueOnce([
@@ -286,6 +334,49 @@ describe("QueueService", () => {
 
       const entries = await service.list("fleet-uuid", "CRUISE", 12345);
       expect(entries[0].hasVoted).toBe(true);
+    });
+  });
+
+  describe("downvote", () => {
+    it("uses connected viewers for deletion threshold", async () => {
+      const db = (await import("@/lib/db")).default;
+      vi.mocked(db.queueEntry.findUnique).mockResolvedValueOnce({
+        fleetId: "fleet-uuid",
+        removedAt: null,
+        queue: "CRUISE",
+      } as never);
+      vi.mocked(db.playback.findUnique).mockResolvedValueOnce({ queueEntryId: "other-entry" } as never);
+
+      const result = await service.downvote("fleet-uuid", "entry-uuid", 12345);
+
+      expect(result.removed).toBe(true);
+      expect(db.session.count).toHaveBeenCalled();
+      expect(db.queueEntry.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "entry-uuid" },
+          data: expect.objectContaining({ removedAt: expect.any(Date) }),
+        })
+      );
+    });
+
+    it("advances playback when the currently playing track is vote-deleted", async () => {
+      const db = (await import("@/lib/db")).default;
+      const advanceSpy = vi
+        .spyOn(PlaybackService.prototype, "advance")
+        .mockResolvedValueOnce({
+          nowPlaying: false,
+          message: { type: "fleet:now-playing", payload: null },
+        });
+      vi.mocked(db.queueEntry.findUnique).mockResolvedValueOnce({
+        fleetId: "fleet-uuid",
+        removedAt: null,
+        queue: "CRUISE",
+      } as never);
+      vi.mocked(db.playback.findUnique).mockResolvedValueOnce({ queueEntryId: "entry-uuid" } as never);
+
+      await service.downvote("fleet-uuid", "entry-uuid", 12345);
+
+      expect(advanceSpy).toHaveBeenCalledWith("fleet-uuid", 12345);
     });
   });
 });

@@ -7,6 +7,7 @@ import type {
   SyncState,
 } from "../src/config/party-messages";
 import type { SessionRole } from "@prisma/client";
+import { hasFleetControl } from "../src/lib/roles";
 
 // ---------------------------------------------------------------------------
 // Connection state stored per socket
@@ -192,8 +193,7 @@ export default class FleetServer implements Party.Server {
       return;
     }
 
-    const isFc =
-      state.role === "FLEET_COMMANDER" || state.role === "FC_DELEGATE";
+    const isFc = hasFleetControl(state.role);
 
     switch (parsed.type) {
       case "fleet:set-track":
@@ -236,6 +236,18 @@ export default class FleetServer implements Party.Server {
       return new Response("Unauthorized", { status: 401 });
     }
 
+    if (req.method === "GET") {
+      const characterIds = new Set<number>();
+      for (const conn of Array.from(this.room.getConnections())) {
+        const state = conn.state as ConnectionState | undefined;
+        if (state) characterIds.add(state.characterId);
+      }
+      return Response.json({
+        connectedViewers: characterIds.size,
+        connections: Array.from(this.room.getConnections()).length,
+      });
+    }
+
     if (req.method === "POST") {
       const message: ServerMessage = await req.json();
       this.applyStateFromBroadcast(message);
@@ -257,6 +269,13 @@ export default class FleetServer implements Party.Server {
       this.state.downvoteDeletePercent = message.downvoteDeletePercent;
     } else if (message.type === "fleet:now-playing") {
       this.state.nowPlaying = message.payload;
+    } else if (message.type === "member:role-changed") {
+      for (const conn of Array.from(this.room.getConnections())) {
+        const state = conn.state as ConnectionState | undefined;
+        if (state?.characterId === message.characterId) {
+          conn.setState({ ...state, role: message.role });
+        }
+      }
     }
   }
 
@@ -285,7 +304,7 @@ export default class FleetServer implements Party.Server {
         break;
       case "fleet:advance":
         path = "playback";
-        body = { queueEntryId: null, initiatedBy: state.characterId, broadcast: false };
+        body = { advance: true, initiatedBy: state.characterId, broadcast: false };
         break;
       case "fleet:set-mode":
         path = "mode";

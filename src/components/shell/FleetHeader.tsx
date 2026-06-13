@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { useFleet } from "@/contexts/FleetContext";
 import { ConnectionPill } from "@/components/ConnectionPill";
+import { InstructionsDialog } from "@/components/InstructionsButton";
 import { LogoutButton } from "@/components/LogoutButton";
 
 interface Props {
@@ -13,13 +15,14 @@ export function FleetHeader({ fleetName, fcName }: Props) {
   const { state, connection } = useFleet();
   const { nowPlaying, members } = state;
   const memberCount = Object.keys(members).length;
+  const [helpOpen, setHelpOpen] = useState(false);
 
   return (
     <header className="flex items-center h-12 px-4 bg-[#0b0f14] border-b border-[#1f2a36] shrink-0 gap-4">
       {/* Left: fleet identity */}
       <div className="flex flex-col justify-center min-w-0 w-48 shrink-0">
         <span className="text-sm font-semibold text-[#e6edf3] truncate">{fleetName}</span>
-        <span className="text-[11px] text-[#9aa4b2] truncate">FC: {fcName}</span>
+        <span className="text-[11px] text-[#9aa4b2] truncate">Boss: {fcName}</span>
       </div>
 
       {/* Center: now playing */}
@@ -40,8 +43,16 @@ export function FleetHeader({ fleetName, fcName }: Props) {
           {memberCount} member{memberCount !== 1 ? "s" : ""}
         </div>
         <ConnectionPill status={connection} />
+        <button
+          type="button"
+          onClick={() => setHelpOpen(true)}
+          className="text-[11px] text-[#9aa4b2] hover:text-[#e6edf3] border border-[#1f2a36] hover:border-[#3fa7ff] rounded px-2 py-1 transition-colors"
+        >
+          Help
+        </button>
         <LogoutButton />
       </div>
+      {helpOpen && <InstructionsDialog onClose={() => setHelpOpen(false)} />}
     </header>
   );
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { requireFc, requireScope } from "@/lib/guards";
+import { requireDelegationManager, requireFc, requireScope } from "@/lib/guards";
 import { ForbiddenError, ScopeNotGrantedError } from "@/lib/errors";
 import type { SessionContext } from "@/lib/guards";
 import { SessionRole } from "@prisma/client";
@@ -17,6 +17,10 @@ function makeCtx(overrides: Partial<SessionContext> = {}): SessionContext {
 }
 
 describe("requireFc", () => {
+  it("passes for FLEET_BOSS", () => {
+    expect(() => requireFc(makeCtx({ role: SessionRole.FLEET_BOSS }))).not.toThrow();
+  });
+
   it("passes for FLEET_COMMANDER", () => {
     expect(() => requireFc(makeCtx({ role: SessionRole.FLEET_COMMANDER }))).not.toThrow();
   });
@@ -27,6 +31,17 @@ describe("requireFc", () => {
 
   it("throws ForbiddenError for LINE_MEMBER", () => {
     expect(() => requireFc(makeCtx({ role: SessionRole.LINE_MEMBER }))).toThrow(ForbiddenError);
+  });
+});
+
+describe("requireDelegationManager", () => {
+  it("passes for FLEET_BOSS and FLEET_COMMANDER", () => {
+    expect(() => requireDelegationManager(makeCtx({ role: SessionRole.FLEET_BOSS }))).not.toThrow();
+    expect(() => requireDelegationManager(makeCtx({ role: SessionRole.FLEET_COMMANDER }))).not.toThrow();
+  });
+
+  it("rejects delegates", () => {
+    expect(() => requireDelegationManager(makeCtx({ role: SessionRole.FC_DELEGATE }))).toThrow(ForbiddenError);
   });
 });
 

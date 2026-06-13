@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useFleet } from "@/contexts/FleetContext";
 import { Tooltip } from "@/components/ui/Tooltip";
+import { hasFleetControl } from "@/lib/roles";
 
 export default function FleetSettingsPage() {
   const { fleetId, myRole, state } = useFleet();
@@ -13,7 +14,7 @@ export default function FleetSettingsPage() {
   const [battleVolumePercent, setBattleVolumePercent] = useState(state.battleVolumePercent);
   const [downvoteDeletePercent, setDownvoteDeletePercent] = useState(state.downvoteDeletePercent);
 
-  const isFc = myRole === "FLEET_COMMANDER";
+  const isFc = hasFleetControl(myRole);
 
   useEffect(() => {
     setBattleVolumePercent(state.battleVolumePercent);
@@ -23,7 +24,7 @@ export default function FleetSettingsPage() {
   if (!isFc) {
     return (
       <div className="p-6 text-fleet-text-muted text-sm">
-        Only the Fleet Commander can access settings.
+        Fleet control access is required for settings.
       </div>
     );
   }

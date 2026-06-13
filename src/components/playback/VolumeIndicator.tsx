@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useFleet } from "@/contexts/FleetContext";
 import { Tooltip } from "@/components/ui/Tooltip";
+import { hasFleetControl } from "@/lib/roles";
 
 const VOLUME_SEND_INTERVAL_MS = 1000;
 
@@ -11,7 +12,7 @@ export function VolumeIndicator() {
   const lastSentAtRef = useRef(0);
   const pendingVolumeRef = useRef<number | null>(null);
   const sendTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isFc = myRole === "FLEET_COMMANDER" || myRole === "FC_DELEGATE";
+  const isFc = hasFleetControl(myRole);
   const controlVolume = isFc ? state.volume : localVolume;
   const [draftVolume, setDraftVolume] = useState(controlVolume);
   const draftFleetVolume = isFc ? draftVolume : state.volume;

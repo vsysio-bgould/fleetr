@@ -40,7 +40,7 @@ export default function FleetCreatePage() {
         <div>
           <h1 className="text-xl font-bold text-fleet-text">Create Fleet</h1>
           <p className="text-fleet-text-muted text-sm mt-1">
-            You must be a Fleet Commander, Wing Commander, or Squad Commander in EVE to continue.
+            You must be the Fleet Boss or Fleet Commander in EVE to continue.
           </p>
         </div>
 

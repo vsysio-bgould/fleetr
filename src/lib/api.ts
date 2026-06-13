@@ -193,7 +193,7 @@ export const api = {
 export interface MemberResponse {
   characterId: number;
   characterName: string;
-  role: "FLEET_COMMANDER" | "FC_DELEGATE" | "LINE_MEMBER";
+  role: "FLEET_BOSS" | "FLEET_COMMANDER" | "FC_DELEGATE" | "LINE_MEMBER";
   solarSystem: string | null;
 }
 

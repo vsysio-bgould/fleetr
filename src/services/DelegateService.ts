@@ -2,6 +2,7 @@ import db from "@/lib/db";
 import { ForbiddenError, NotFoundError } from "@/lib/errors";
 import { SessionRole } from "@prisma/client";
 import { broadcastToFleet } from "@/lib/broadcast";
+import { canManageDelegation } from "@/lib/roles";
 
 export class DelegateService {
   async list(fleetId: string) {
@@ -36,8 +37,8 @@ export class DelegateService {
       throw new NotFoundError("Target character is not in the fleet");
     }
 
-    if (targetSession.role === SessionRole.FLEET_COMMANDER) {
-      throw new ForbiddenError("Target is already the fleet commander");
+    if (canManageDelegation(targetSession.role)) {
+      throw new ForbiddenError("Target already has boss or commander access");
     }
 
     await db.fleetDelegate.upsert({

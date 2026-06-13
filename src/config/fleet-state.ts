@@ -15,6 +15,7 @@
 
 import type { FleetMode, MediaSource, QueueType, SessionRole } from '@prisma/client';
 import type { FleetNowPlaying, MemberSnapshot, QueueEntrySnapshot } from './party-messages.js';
+import { hasFleetControl } from '../lib/roles.js';
 
 // ---------------------------------------------------------------------------
 // Supporting types
@@ -111,10 +112,7 @@ export function selectActiveQueue(state: FleetState): QueueEntrySnapshot[] {
  * Delegates are included — they share the FC capability set.
  */
 export function selectIsFc(state: FleetState): boolean {
-    return (
-        state.session.role === 'FLEET_COMMANDER' ||
-        state.session.role === 'FC_DELEGATE'
-    );
+    return hasFleetControl(state.session.role);
 }
 
 /**

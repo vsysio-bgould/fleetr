@@ -1,21 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { errorResponse } from "@/lib/api-response";
 import logger from "@/lib/logger";
+import { buildPartyKitHttpUrl } from "@/lib/party";
 
 function requireSecret(req: NextRequest): boolean {
   const secret = req.headers.get("X-PartyKit-Secret");
   return secret === process.env.PARTYKIT_SECRET;
-}
-
-function buildPartyKitHttpUrl(roomId: string): string {
-  const configured =
-    process.env.PARTYKIT_INTERNAL_URL ??
-    process.env.NEXT_PUBLIC_PARTYKIT_HOST ??
-    "localhost:1999";
-  const base = configured.match(/^https?:\/\//)
-    ? configured
-    : `http://${configured}`;
-  return new URL(`/parties/main/${roomId}`, base).toString();
 }
 
 export async function POST(

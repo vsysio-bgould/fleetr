@@ -46,17 +46,10 @@ describe("queue-advance worker", () => {
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
-  it("calls internal API to advance when next entry exists", async () => {
+  it("calls internal API to request canonical advancement", async () => {
     const db = (await import("@/lib/db")).default;
     vi.mocked(db.fleet.findUnique).mockResolvedValueOnce({
-      mode: "CRUISE",
       disbandedAt: null,
-    } as never);
-    vi.mocked(db.playback.findUnique).mockResolvedValueOnce({
-      queueEntryId: "current-entry",
-    } as never);
-    vi.mocked(db.queueEntry.findFirst).mockResolvedValueOnce({
-      id: "next-entry",
     } as never);
 
     const job = makeJob({ fleetId: "fleet-uuid" }, "fleet-advance-fleet-uuid");
@@ -66,7 +59,7 @@ describe("queue-advance worker", () => {
       "http://localhost:3000/api/v1/internal/fleets/fleet-uuid/playback",
       expect.objectContaining({
         method: "POST",
-        body: JSON.stringify({ queueEntryId: "next-entry", initiatedBy: null }),
+        body: JSON.stringify({ advance: true, initiatedBy: null }),
       })
     );
   });
@@ -75,14 +68,7 @@ describe("queue-advance worker", () => {
     const db = (await import("@/lib/db")).default;
     vi.stubEnv("PARTYKIT_APP_URL", "http://app:3000");
     vi.mocked(db.fleet.findUnique).mockResolvedValueOnce({
-      mode: "CRUISE",
       disbandedAt: null,
-    } as never);
-    vi.mocked(db.playback.findUnique).mockResolvedValueOnce({
-      queueEntryId: "current-entry",
-    } as never);
-    vi.mocked(db.queueEntry.findFirst).mockResolvedValueOnce({
-      id: "next-entry",
     } as never);
 
     const job = makeJob({ fleetId: "fleet-uuid" }, "fleet-advance-fleet-uuid");
@@ -94,16 +80,11 @@ describe("queue-advance worker", () => {
     );
   });
 
-  it("calls internal API to clear playback when queue is empty", async () => {
+  it("lets the playback API clear playback when the canonical queue is empty", async () => {
     const db = (await import("@/lib/db")).default;
     vi.mocked(db.fleet.findUnique).mockResolvedValueOnce({
-      mode: "CRUISE",
       disbandedAt: null,
     } as never);
-    vi.mocked(db.playback.findUnique).mockResolvedValueOnce({
-      queueEntryId: null,
-    } as never);
-    vi.mocked(db.queueEntry.findFirst).mockResolvedValueOnce(null);
 
     const job = makeJob({ fleetId: "fleet-uuid" }, "fleet-advance-fleet-uuid");
     await workerDef.process(job);
@@ -111,7 +92,7 @@ describe("queue-advance worker", () => {
     expect(mockFetch).toHaveBeenCalledWith(
       expect.any(String),
       expect.objectContaining({
-        body: JSON.stringify({ queueEntryId: null, initiatedBy: null }),
+        body: JSON.stringify({ advance: true, initiatedBy: null }),
       })
     );
   });

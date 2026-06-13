@@ -1,20 +1,10 @@
 import crypto from "crypto";
 import db from "@/lib/db";
 import type { IEsiClient } from "@/infra/esi/types";
-import {
-  ForbiddenError,
-  FleetExpiredError,
-  NotFoundError,
-  NotInFleetError,
-} from "@/lib/errors";
-import type { MediaSource } from "@prisma/client";
+import { ForbiddenError, FleetExpiredError, NotFoundError, NotInFleetError } from "@/lib/errors";
+import type { MediaSource, SessionRole } from "@prisma/client";
 import logger from "@/lib/logger";
-
-const FC_ROLES: ReadonlySet<string> = new Set([
-  "fleet_commander",
-  "wing_commander",
-  "squad_commander",
-]);
+import { hasFleetControl } from "@/lib/roles";
 
 /** Returned when creating a fleet — includes the join token for the FC. */
 export interface FleetCreated {
@@ -41,12 +31,12 @@ export class FleetService {
   constructor(private readonly esiClient: IEsiClient) {}
 
   async create(
-    fcCharacterId: number,
+    creatorCharacterId: number,
     accessToken: string,
     mediaSource: MediaSource = "YOUTUBE"
   ): Promise<FleetCreated> {
     const membership = await this.esiClient.getFleetMembership(
-      fcCharacterId,
+      creatorCharacterId,
       accessToken
     );
 
@@ -54,24 +44,37 @@ export class FleetService {
       throw new NotInFleetError();
     }
 
-    if (!FC_ROLES.has(membership.role)) {
+    const isFleetBoss = membership.fleetBossId === creatorCharacterId;
+    const isFleetCommander = membership.role === "fleet_commander";
+
+    if (!isFleetBoss && !isFleetCommander) {
       throw new ForbiddenError(
-        "You must be a Fleet Commander, Wing Commander, or Squad Commander to create a Fleetr fleet"
+        "You must be the Fleet Boss or Fleet Commander to create a Fleetr fleet"
       );
     }
 
-    const character = await this.esiClient.getCharacter(fcCharacterId);
+    const bossCharacter = await this.esiClient.getCharacter(membership.fleetBossId);
+    if (!isFleetBoss) {
+      await db.user.upsert({
+        where: { characterId: membership.fleetBossId },
+        update: { characterName: bossCharacter.name },
+        create: {
+          characterId: membership.fleetBossId,
+          characterName: bossCharacter.name,
+        },
+      });
+    }
 
     const joinToken = generateJoinToken();
 
     const fleet = await db.fleet.create({
       data: {
         esiFleetId: membership.fleetId,
-        name: character.name,
+        name: bossCharacter.name,
         joinToken,
         mode: "CRUISE",
         mediaSource,
-        fcCharacterId,
+        fcCharacterId: membership.fleetBossId,
       },
     });
 
@@ -87,15 +90,20 @@ export class FleetService {
     await db.session.create({
       data: {
         fleetId: fleet.id,
-        characterId: fcCharacterId,
-        role: "FLEET_COMMANDER",
+        characterId: creatorCharacterId,
+        role: isFleetBoss ? "FLEET_BOSS" : "FLEET_COMMANDER",
         grantedScopes: [],
         expiresAt: sessionExpiry,
       },
     });
 
     logger.info(
-      { fleetId: fleet.id, fcCharacterId, mediaSource },
+      {
+        fleetId: fleet.id,
+        creatorCharacterId,
+        fleetBossId: membership.fleetBossId,
+        mediaSource,
+      },
       "Fleet created"
     );
 
@@ -128,15 +136,15 @@ export class FleetService {
     };
   }
 
-  async disband(fleetId: string, characterId: number): Promise<void> {
+  async disband(fleetId: string, characterId: number, role: SessionRole): Promise<void> {
     const fleet = await db.fleet.findUnique({
       where: { id: fleetId },
-      select: { fcCharacterId: true, disbandedAt: true },
+      select: { disbandedAt: true },
     });
 
     if (!fleet) throw new NotFoundError("Fleet");
-    if (fleet.fcCharacterId !== characterId) {
-      throw new ForbiddenError("Only the Fleet Commander can disband a fleet");
+    if (!hasFleetControl(role)) {
+      throw new ForbiddenError("This action requires fleet control access");
     }
     if (fleet.disbandedAt) {
       throw new FleetExpiredError();
@@ -152,18 +160,17 @@ export class FleetService {
 
   async regenerateToken(
     fleetId: string,
-    characterId: number
+    characterId: number,
+    role: SessionRole
   ): Promise<{ joinToken: string; joinUrl: string }> {
     const fleet = await db.fleet.findUnique({
       where: { id: fleetId },
-      select: { fcCharacterId: true },
+      select: { id: true },
     });
 
     if (!fleet) throw new NotFoundError("Fleet");
-    if (fleet.fcCharacterId !== characterId) {
-      throw new ForbiddenError(
-        "Only the Fleet Commander can regenerate the join token"
-      );
+    if (!hasFleetControl(role)) {
+      throw new ForbiddenError("This action requires fleet control access");
     }
 
     const joinToken = generateJoinToken();

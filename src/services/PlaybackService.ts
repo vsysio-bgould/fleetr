@@ -19,6 +19,10 @@ export interface PlaybackState {
 
 const ADVANCE_JOB_ID = (fleetId: string) => `fleet-advance-${fleetId}`;
 
+function score(votes: number, downvotes: number | undefined): number {
+  return votes - (downvotes ?? 0);
+}
+
 interface PlayableEntry {
   id: string;
   mediaId: string;
@@ -112,20 +116,14 @@ export class PlaybackService {
     });
     if (!fleet) throw new NotFoundError("Fleet");
 
-    const nextEntry = await this.topOfQueue(fleetId, fleet.mode);
+    const current = await db.playback.findUnique({
+      where: { fleetId },
+      select: { queueEntryId: true },
+    });
+    const nextEntry = await this.topOfQueue(fleetId, fleet.mode, current?.queueEntryId ?? null);
 
     if (!nextEntry) {
-      await this.clearTrack(fleetId);
-
-      const message = {
-        type: "fleet:now-playing",
-        payload: null,
-      } satisfies ServerMessage;
-
-      if (options.broadcast !== false) {
-        void broadcastToFleet(fleetId, message);
-      }
-
+      const message = await this.clear(fleetId, options);
       logger.info({ fleetId, initiatedBy }, "Queue exhausted, playback cleared");
       return { nowPlaying: false, message };
     }
@@ -223,6 +221,24 @@ export class PlaybackService {
       void broadcastToFleet(fleetId, message);
     }
     logger.debug({ fleetId, volume }, "Fleet volume changed");
+    return message;
+  }
+
+  async clear(
+    fleetId: string,
+    options: { broadcast?: boolean } = {}
+  ): Promise<ServerMessage> {
+    await this.clearTrack(fleetId);
+
+    const message = {
+      type: "fleet:now-playing",
+      payload: null,
+    } satisfies ServerMessage;
+
+    if (options.broadcast !== false) {
+      void broadcastToFleet(fleetId, message);
+    }
+
     return message;
   }
 
@@ -328,18 +344,34 @@ export class PlaybackService {
   }
 
   /** Top of a queue: votes desc, position asc - same order the queue UI shows. */
-  private async topOfQueue(fleetId: string, mode: FleetMode) {
+  private async topOfQueue(
+    fleetId: string,
+    mode: FleetMode,
+    excludeQueueEntryId: string | null = null
+  ) {
     // FleetMode and QueueType share the same values (CRUISE | BATTLE)
     const queue = mode as string as QueueType;
     const entries = await db.queueEntry.findMany({
-      where: { fleetId, queue, removedAt: null },
-      select: { ...PLAYABLE_SELECT, position: true, _count: { select: { votes: true } } },
+      where: {
+        fleetId,
+        queue,
+        removedAt: null,
+        NOT: excludeQueueEntryId ? { id: excludeQueueEntryId } : undefined,
+      },
+      select: {
+        ...PLAYABLE_SELECT,
+        position: true,
+        _count: { select: { votes: true, downvotes: true } },
+      },
       // TODO: exclude already-played entries (needs plays table in future)
     });
     if (entries.length === 0) return null;
 
     entries.sort(
-      (a, b) => b._count.votes - a._count.votes || a.position - b.position
+      (a, b) =>
+        score(b._count.votes, b._count.downvotes) -
+          score(a._count.votes, a._count.downvotes) ||
+        a.position - b.position
     );
     return entries[0];
   }

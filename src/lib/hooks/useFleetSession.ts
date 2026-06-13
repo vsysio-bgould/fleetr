@@ -2,13 +2,17 @@
 
 import { useFleet } from "@/contexts/FleetContext";
 import type { MemberSnapshot } from "@/contexts/FleetContext";
+import { canManageDelegation, hasFleetControl } from "@/lib/roles";
 
 export interface FleetSessionInfo {
   fleetId: string;
   myCharacterId: number;
   myRole: MemberSnapshot["role"] | null;
   isFc: boolean;
+  isFleetBoss: boolean;
+  isFleetCommander: boolean;
   isDelegate: boolean;
+  canManageDelegation: boolean;
   hasElevatedAccess: boolean;
   connection: import("@/components/ConnectionPill").ConnectionStatus;
 }
@@ -20,16 +24,21 @@ export interface FleetSessionInfo {
 export function useFleetSession(): FleetSessionInfo {
   const { fleetId, myCharacterId, myRole, connection } = useFleet();
 
-  const isFc = myRole === "FLEET_COMMANDER";
+  const isFleetBoss = myRole === "FLEET_BOSS";
+  const isFleetCommander = myRole === "FLEET_COMMANDER";
   const isDelegate = myRole === "FC_DELEGATE";
+  const isFc = hasFleetControl(myRole);
 
   return {
     fleetId,
     myCharacterId,
     myRole,
+    isFleetBoss,
+    isFleetCommander,
     isFc,
     isDelegate,
-    hasElevatedAccess: isFc || isDelegate,
+    canManageDelegation: canManageDelegation(myRole),
+    hasElevatedAccess: isFc,
     connection,
   };
 }

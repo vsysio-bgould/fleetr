@@ -4,6 +4,7 @@ import { requireAuth, type AuthContext } from "@/lib/auth-middleware";
 import { ForbiddenError, NotFoundError, ScopeNotGrantedError } from "@/lib/errors";
 import type { SessionRole } from "@prisma/client";
 import { SCOPE_GATES, type ScopeGateKey } from "@/config/scope-gates";
+import { canManageDelegation, hasFleetControl } from "@/lib/roles";
 
 export interface SessionContext extends AuthContext {
   sessionId: string;
@@ -58,18 +59,21 @@ export function requireScope(ctx: SessionContext, gate: ScopeGateKey): void {
 }
 
 export function requireFc(ctx: SessionContext): void {
-  if (ctx.role !== "FLEET_COMMANDER" && ctx.role !== "FC_DELEGATE") {
-    throw new ForbiddenError("This action requires Fleet Commander access");
+  if (!hasFleetControl(ctx.role)) {
+    throw new ForbiddenError("This action requires fleet control access");
   }
 }
 
 export function requireFleetCommander(ctx: SessionContext): void {
-  if (ctx.role !== "FLEET_COMMANDER") {
+  if (!canManageDelegation(ctx.role)) {
     throw new ForbiddenError(
-      "This action requires the Fleet Commander role (not delegate)"
+      "This action requires Fleet Boss or Fleet Commander access"
     );
   }
 }
+
+export const requireFleetControl = requireFc;
+export const requireDelegationManager = requireFleetCommander;
 
 export async function requireOperator(req: NextRequest): Promise<AuthContext> {
   const auth = await requireAuth(req);

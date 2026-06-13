@@ -1,9 +1,9 @@
 import db from "@/lib/db";
 import { ForbiddenError, NotFoundError } from "@/lib/errors";
-import { SessionRole } from "@prisma/client";
 import { broadcastToFleet } from "@/lib/broadcast";
 import type { ServerMessage } from "@/config/party-messages";
 import logger from "@/lib/logger";
+import { canManageDelegation } from "@/lib/roles";
 
 export class MemberService {
   async list(fleetId: string) {
@@ -40,8 +40,8 @@ export class MemberService {
       throw new NotFoundError("Member not found in fleet");
     }
 
-    if (target.role === SessionRole.FLEET_COMMANDER) {
-      throw new ForbiddenError("Cannot kick the fleet commander");
+    if (canManageDelegation(target.role)) {
+      throw new ForbiddenError("Cannot kick the Fleet Boss or Fleet Commander");
     }
 
     await db.session.delete({

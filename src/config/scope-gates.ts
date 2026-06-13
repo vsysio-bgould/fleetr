@@ -14,25 +14,25 @@ export const SCOPE_GATES = {
     scope: "esi-fleets.read_fleet.v1",
     key: "FLEET_MEMBERSHIP",
     label: "Fleet Membership",
-    consequence: "Required to verify you are in an EVE fleet",
+    consequence: "Required: verifies your EVE fleet, fleet ID, and command role",
   },
   LOCATION: {
     scope: "esi-location.read_location.v1",
     key: "LOCATION",
     label: "Location",
-    consequence: "Required to show solar system in the member roster",
+    consequence: "Optional: shows your current solar system in the member roster",
   },
   FLEET_MEMBERS: {
     scope: "esi-fleets.read_fleet.v1",
     key: "FLEET_MEMBERS",
     label: "Fleet Members",
-    consequence: "Required for fleet member roster and kick functionality",
+    consequence: "Required: reads fleet membership for roster and access checks",
   },
   FLEET_WRITE: {
     scope: "esi-fleets.write_fleet.v1",
     key: "FLEET_WRITE",
     label: "Fleet Sync",
-    consequence: "FC only — lets Fleetr kick members from the EVE fleet and set the fleet MOTD",
+    consequence: "Optional for Boss/FC: lets Fleetr append the join link to the fleet MOTD",
   },
 } as const satisfies Record<string, ScopeGate>;
 

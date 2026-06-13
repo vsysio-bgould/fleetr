@@ -1,5 +1,6 @@
 export interface EsiFleetMembership {
   fleetId: string;
+  fleetBossId: number;
   role:
     | "fleet_commander"
     | "wing_commander"

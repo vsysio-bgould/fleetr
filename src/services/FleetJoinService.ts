@@ -1,4 +1,5 @@
 import db from "@/lib/db";
+import type { SessionRole } from "@prisma/client";
 import type { IEsiClient } from "@/infra/esi/types";
 import {
   NotFoundError,
@@ -24,7 +25,13 @@ export class FleetJoinService {
   ): Promise<JoinResult> {
     const fleet = await db.fleet.findUnique({
       where: { joinToken },
-      select: { id: true, esiFleetId: true, disbandedAt: true, expiresAt: true },
+      select: {
+        id: true,
+        esiFleetId: true,
+        disbandedAt: true,
+        expiresAt: true,
+        fcCharacterId: true,
+      },
     });
 
     if (!fleet) {
@@ -36,6 +43,8 @@ export class FleetJoinService {
     }
 
     // Gate: verify the character is actually in this EVE fleet
+    let eveRole: string | null = null;
+    let fleetBossId = fleet.fcCharacterId;
     if (accessToken) {
       const membership = await this.esiClient.getFleetMembership(
         characterId,
@@ -49,6 +58,8 @@ export class FleetJoinService {
       if (membership.fleetId !== fleet.esiFleetId) {
         throw new NotInFleetError();
       }
+      eveRole = membership.role;
+      fleetBossId = membership.fleetBossId;
     } else {
       // No token = minimum scope flow; cannot verify membership
       // The join token itself is the authorization mechanism in this case
@@ -61,7 +72,14 @@ export class FleetJoinService {
       },
     });
 
-    const role = delegate ? "FC_DELEGATE" : ("LINE_MEMBER" as const);
+    const role: SessionRole =
+      characterId === fleetBossId || characterId === fleet.fcCharacterId
+        ? "FLEET_BOSS"
+        : eveRole === "fleet_commander"
+          ? "FLEET_COMMANDER"
+        : delegate
+          ? "FC_DELEGATE"
+          : "LINE_MEMBER";
 
     const sessionExpiry = new Date();
     sessionExpiry.setHours(sessionExpiry.getHours() + 24);

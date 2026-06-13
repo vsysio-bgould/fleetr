@@ -37,6 +37,7 @@ describe("FleetJoinService", () => {
     // Default mock: character is in fleet-123
     vi.mocked(mockEsi.getFleetMembership).mockResolvedValue({
       fleetId: "fleet-123",
+      fleetBossId: 99999,
       role: "squad_member",
     });
     service = new FleetJoinService(mockEsi);
@@ -47,6 +48,7 @@ describe("FleetJoinService", () => {
     vi.mocked(db.fleet.findUnique).mockResolvedValueOnce({
       id: "fleet-uuid",
       esiFleetId: "fleet-123",
+      fcCharacterId: 99999,
       disbandedAt: null,
       expiresAt: null,
       ...overrides,
@@ -113,6 +115,53 @@ describe("FleetJoinService", () => {
 
       const result = await service.join("join-token", 12345, "access-token");
       expect(result.role).toBe("FC_DELEGATE");
+    });
+
+    it("grants FLEET_BOSS role to the stored fleet boss", async () => {
+      await mockFleet({ fcCharacterId: 12345 });
+
+      const result = await service.join("join-token", 12345, "access-token");
+      expect(result.role).toBe("FLEET_BOSS");
+    });
+
+    it("grants FLEET_BOSS role when ESI reports the character as current fleet boss", async () => {
+      await mockFleet({ fcCharacterId: 99999 });
+      vi.mocked(mockEsi.getFleetMembership).mockResolvedValueOnce({
+        fleetId: "fleet-123",
+        fleetBossId: 12345,
+        role: "squad_commander",
+      });
+
+      const result = await service.join("join-token", 12345, "access-token");
+      expect(result.role).toBe("FLEET_BOSS");
+    });
+
+    it("grants FLEET_COMMANDER role to the top hierarchy commander", async () => {
+      await mockFleet();
+      vi.mocked(mockEsi.getFleetMembership).mockResolvedValueOnce({
+        fleetId: "fleet-123",
+        fleetBossId: 99999,
+        role: "fleet_commander",
+      });
+
+      const result = await service.join("join-token", 12345, "access-token");
+      expect(result.role).toBe("FLEET_COMMANDER");
+    });
+
+    it("grants FLEET_COMMANDER role ahead of an existing delegate row", async () => {
+      await mockFleet();
+      const db = (await import("@/lib/db")).default;
+      vi.mocked(db.fleetDelegate.findUnique).mockResolvedValueOnce({
+        id: "delegate-uuid",
+      } as never);
+      vi.mocked(mockEsi.getFleetMembership).mockResolvedValueOnce({
+        fleetId: "fleet-123",
+        fleetBossId: 99999,
+        role: "fleet_commander",
+      });
+
+      const result = await service.join("join-token", 12345, "access-token");
+      expect(result.role).toBe("FLEET_COMMANDER");
     });
   });
 

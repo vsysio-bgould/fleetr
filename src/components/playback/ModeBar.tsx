@@ -1,13 +1,14 @@
 "use client";
 
 import { useFleet } from "@/contexts/FleetContext";
+import { hasFleetControl } from "@/lib/roles";
 
 const MODES = ["CRUISE", "BATTLE"] as const;
 
 export function ModeBar() {
   const { state, send, myRole } = useFleet();
   const mode = state.mode;
-  const isFc = myRole === "FLEET_COMMANDER" || myRole === "FC_DELEGATE";
+  const isFc = hasFleetControl(myRole);
 
   const setMode = (newMode: (typeof MODES)[number]) => {
     if (!isFc || newMode === mode) return;

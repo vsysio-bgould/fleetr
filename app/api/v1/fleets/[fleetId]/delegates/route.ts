@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { requireSession, requireFc } from "@/lib/guards";
+import { requireDelegationManager, requireSession } from "@/lib/guards";
 import { DelegateService } from "@/services/DelegateService";
 import { ok, created, errorResponse } from "@/lib/api-response";
 
@@ -25,7 +25,7 @@ export async function POST(
   try {
     const { fleetId } = await Promise.resolve(params);
     const ctx = await requireSession(req, fleetId);
-    requireFc(ctx);
+    requireDelegationManager(ctx);
     const body = await req.json();
     const targetCharacterId = parseInt(body.characterId, 10);
     const service = new DelegateService();

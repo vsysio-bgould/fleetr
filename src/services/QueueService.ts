@@ -12,6 +12,11 @@ import { broadcastToFleet } from "@/lib/broadcast";
 import type { ServerMessage } from "@/config/party-messages";
 import logger from "@/lib/logger";
 import { PlaybackService } from "@/services/PlaybackService";
+import { getConnectedViewerCount } from "@/lib/party";
+
+function score(votes: number, downvotes: number | undefined): number {
+  return votes - (downvotes ?? 0);
+}
 
 export interface QueueEntryRow {
   id: string;
@@ -339,17 +344,22 @@ export class QueueService {
       },
     });
 
-    const [downvotes, fleet, activeViewers] = await Promise.all([
+    const [downvotes, fleet, connectedViewers, activeSessions, currentPlayback] = await Promise.all([
       db.queueDownvote.count({ where: { queueEntryId: entryId } }),
       db.fleet.findUnique({
         where: { id: fleetId },
         select: { downvoteDeletePercent: true },
       }),
+      getConnectedViewerCount(fleetId),
       db.session.count({
         where: {
           fleetId,
           expiresAt: { gt: new Date() },
         },
+      }),
+      db.playback.findUnique({
+        where: { fleetId },
+        select: { queueEntryId: true },
       }),
     ]);
 
@@ -363,6 +373,7 @@ export class QueueService {
     } satisfies ServerMessage);
 
     const threshold = fleet?.downvoteDeletePercent ?? 50;
+    const activeViewers = Math.max(connectedViewers ?? activeSessions, 1);
     const percent = activeViewers > 0 ? (downvotes / activeViewers) * 100 : 0;
     const removed = percent >= threshold;
 
@@ -378,6 +389,15 @@ export class QueueService {
         queue: entry.queue,
         reason: "DOWNVOTE",
       } satisfies ServerMessage);
+
+      if (currentPlayback?.queueEntryId === entryId) {
+        await new PlaybackService().advance(fleetId, characterId).catch((error) => {
+          logger.warn(
+            { fleetId, entryId, error },
+            "Failed to advance after downvote-deleting current track"
+          );
+        });
+      }
     }
 
     return { downvotes, removed };
@@ -465,7 +485,8 @@ export class QueueService {
       .sort((a, b) => {
         if (a.removedAt && !b.removedAt) return 1;
         if (!a.removedAt && b.removedAt) return -1;
-        if (b.votes !== a.votes) return b.votes - a.votes;
+        const scoreDiff = score(b.votes, b.downvotes) - score(a.votes, a.downvotes);
+        if (scoreDiff !== 0) return scoreDiff;
         return a.position - b.position;
       });
   }

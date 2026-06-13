@@ -1,6 +1,5 @@
 import { NextRequest } from "next/server";
-import { requireAuth } from "@/lib/auth-middleware";
-import { requireSession } from "@/lib/guards";
+import { requireFleetControl, requireSession } from "@/lib/guards";
 import { FleetService } from "@/services/FleetService";
 import { EsiClient } from "@/infra/esi/EsiClient";
 import { ok, noContent, errorResponse } from "@/lib/api-response";
@@ -26,9 +25,10 @@ export async function DELETE(
 ) {
   try {
     const { fleetId } = await Promise.resolve(params);
-    const { characterId } = await requireAuth(req);
+    const ctx = await requireSession(req, fleetId);
+    requireFleetControl(ctx);
     const service = new FleetService(new EsiClient());
-    await service.disband(fleetId, characterId);
+    await service.disband(fleetId, ctx.characterId, ctx.role);
     return noContent();
   } catch (err) {
     return errorResponse(err);

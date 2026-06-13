@@ -1,4 +1,4 @@
-import { decodeJwt } from "jose";
+import { createRemoteJWKSet, jwtVerify, type JWTPayload } from "jose";
 import { EsiHttpClient } from "@/infra/esi/EsiHttpClient";
 import type {
   EsiCharacter,
@@ -12,6 +12,23 @@ import logger from "@/lib/logger";
 
 const ESI_SSO_BASE = "https://login.eveonline.com";
 const ESI_SSO_TOKEN_URL = `${ESI_SSO_BASE}/v2/oauth/token`;
+const ESI_SSO_METADATA_URL = `${ESI_SSO_BASE}/.well-known/oauth-authorization-server`;
+const ESI_AUDIENCE = "EVE Online";
+
+interface EveSsoMetadata {
+  issuer: string;
+  jwks_uri: string;
+}
+
+interface VerifiedEveClaims {
+  characterId: number;
+  characterName: string;
+  scopes: string[];
+}
+
+let metadataPromise:
+  | Promise<EveSsoMetadata & { jwks: ReturnType<typeof createRemoteJWKSet> }>
+  | null = null;
 
 export class EsiClient implements IEsiClient {
   private readonly http: EsiHttpClient;
@@ -67,28 +84,15 @@ export class EsiClient implements IEsiClient {
     }
 
     const body = await response.json();
-
-    // Decode the access token JWT to extract character info
-    const claims = decodeJwt(body.access_token as string);
-    const subject = (claims.sub as string) ?? "";
-    // Subject format: "CHARACTER:EVE:<characterId>"
-    const characterIdStr = subject.split(":").at(-1) ?? "";
-    const characterId = parseInt(characterIdStr, 10);
-
-    if (!characterId || isNaN(characterId)) {
-      throw new EsiUnavailableError("Could not extract character ID from ESI token");
-    }
-
-    const scopes = ((claims.scp as string | string[] | undefined) ?? []);
-    const scopeArray = Array.isArray(scopes) ? scopes : [scopes];
+    const claims = await verifyEveAccessToken(body.access_token as string, this.clientId);
 
     return {
       accessToken: body.access_token as string,
       refreshToken: body.refresh_token as string,
       expiresIn: body.expires_in as number,
-      scopes: scopeArray,
-      characterId,
-      characterName: (claims.name as string) ?? "",
+      scopes: claims.scopes,
+      characterId: claims.characterId,
+      characterName: claims.characterName,
     };
   }
 
@@ -123,25 +127,15 @@ export class EsiClient implements IEsiClient {
     }
 
     const body = await response.json();
-    const claims = decodeJwt(body.access_token as string);
-    const subject = (claims.sub as string) ?? "";
-    const characterIdStr = subject.split(":").at(-1) ?? "";
-    const characterId = parseInt(characterIdStr, 10);
-
-    if (!characterId || isNaN(characterId)) {
-      throw new EsiUnavailableError("Could not extract character ID from refreshed ESI token");
-    }
-
-    const scopes = (claims.scp as string | string[] | undefined) ?? [];
-    const scopeArray = Array.isArray(scopes) ? scopes : [scopes];
+    const claims = await verifyEveAccessToken(body.access_token as string, this.clientId);
 
     return {
       accessToken: body.access_token as string,
       refreshToken: body.refresh_token as string,
       expiresIn: body.expires_in as number,
-      scopes: scopeArray,
-      characterId,
-      characterName: (claims.name as string) ?? "",
+      scopes: claims.scopes,
+      characterId: claims.characterId,
+      characterName: claims.characterName,
     };
   }
 
@@ -151,6 +145,7 @@ export class EsiClient implements IEsiClient {
   ): Promise<EsiFleetMembership | null> {
     const result = await this.http.request<{
       fleet_id: string;
+      fleet_boss_id: number;
       role: EsiFleetMembership["role"];
       squad_id?: number;
       wing_id?: number;
@@ -160,6 +155,7 @@ export class EsiClient implements IEsiClient {
 
     return {
       fleetId: String(result.data.fleet_id),
+      fleetBossId: result.data.fleet_boss_id,
       role: result.data.role,
       squadId: result.data.squad_id,
       wingId: result.data.wing_id,
@@ -242,4 +238,88 @@ export class EsiClient implements IEsiClient {
       },
     });
   }
+}
+
+async function verifyEveAccessToken(
+  accessToken: string,
+  clientId: string
+): Promise<VerifiedEveClaims> {
+  const metadata = await getEveSsoMetadata();
+
+  let payload: JWTPayload;
+  try {
+    const result = await jwtVerify(accessToken, metadata.jwks, {
+      issuer: uniqueIssuers(metadata.issuer),
+      audience: clientId,
+    });
+    payload = result.payload;
+  } catch (err) {
+    logger.warn({ err }, "EVE SSO JWT verification failed");
+    throw new EsiUnavailableError("EVE SSO token verification failed");
+  }
+
+  const audiences = toArray(payload.aud);
+  if (!audiences.includes(clientId) || !audiences.includes(ESI_AUDIENCE)) {
+    throw new EsiUnavailableError("EVE SSO token audience is invalid");
+  }
+
+  if (typeof payload.azp === "string" && payload.azp !== clientId) {
+    throw new EsiUnavailableError("EVE SSO token authorized party is invalid");
+  }
+
+  const subject = typeof payload.sub === "string" ? payload.sub : "";
+  const characterId = parseCharacterId(subject);
+  const scopes = toArray(payload.scp);
+
+  return {
+    characterId,
+    characterName: typeof payload.name === "string" ? payload.name : "",
+    scopes,
+  };
+}
+
+async function getEveSsoMetadata() {
+  if (!metadataPromise) {
+    metadataPromise = fetch(ESI_SSO_METADATA_URL)
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new EsiUnavailableError(`EVE SSO metadata returned ${response.status}`);
+        }
+        const metadata = (await response.json()) as EveSsoMetadata;
+        if (!metadata.jwks_uri || !metadata.issuer) {
+          throw new EsiUnavailableError("EVE SSO metadata is incomplete");
+        }
+        return {
+          ...metadata,
+          jwks: createRemoteJWKSet(new URL(metadata.jwks_uri)),
+        };
+      })
+      .catch((err) => {
+        metadataPromise = null;
+        throw err;
+      });
+  }
+
+  return metadataPromise;
+}
+
+function uniqueIssuers(metadataIssuer: string): string[] {
+  return Array.from(new Set([metadataIssuer, "https://login.eveonline.com/", "login.eveonline.com"]));
+}
+
+function parseCharacterId(subject: string): number {
+  const characterIdStr = subject.startsWith("CHARACTER:EVE:")
+    ? subject.split(":").at(-1)
+    : null;
+  const characterId = characterIdStr ? parseInt(characterIdStr, 10) : NaN;
+  if (!characterId || Number.isNaN(characterId)) {
+    throw new EsiUnavailableError("Could not extract character ID from EVE SSO token");
+  }
+  return characterId;
+}
+
+function toArray(value: unknown): string[] {
+  if (Array.isArray(value)) return value.filter((v): v is string => typeof v === "string");
+  if (typeof value === "string" && value.length > 0) return [value];
+  return [];
 }

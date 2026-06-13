@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { requireAuth } from "@/lib/auth-middleware";
+import { requireFleetControl, requireSession } from "@/lib/guards";
 import { FleetService } from "@/services/FleetService";
 import { EsiClient } from "@/infra/esi/EsiClient";
 import { ok, errorResponse } from "@/lib/api-response";
@@ -10,9 +10,10 @@ export async function POST(
 ) {
   try {
     const { fleetId } = await Promise.resolve(params);
-    const { characterId } = await requireAuth(req);
+    const ctx = await requireSession(req, fleetId);
+    requireFleetControl(ctx);
     const service = new FleetService(new EsiClient());
-    const result = await service.regenerateToken(fleetId, characterId);
+    const result = await service.regenerateToken(fleetId, ctx.characterId, ctx.role);
     return ok(result);
   } catch (err) {
     return errorResponse(err);

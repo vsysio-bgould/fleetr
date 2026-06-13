@@ -21,6 +21,7 @@ export function createMockEsiClient(): IEsiClient {
     }),
     getFleetMembership: vi.fn().mockResolvedValue({
       fleetId: "fleet-123",
+      fleetBossId: 12345,
       role: "fleet_commander",
     }),
     getCharacter: vi.fn().mockResolvedValue({

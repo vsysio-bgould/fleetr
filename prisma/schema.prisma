@@ -18,6 +18,7 @@ enum FleetMode {
 
 enum SessionRole {
     LINE_MEMBER
+    FLEET_BOSS
     FLEET_COMMANDER
     FC_DELEGATE
 }
@@ -129,21 +130,21 @@ model AdvisoryDismissal {
 
 /// A fleet session managed by Fleetr. One Fleetr fleet maps to one EVE fleet.
 ///
-/// name: Set once at creation from the FC's EVE character name (ESI does not
+/// name: Set once at creation from the Fleet Boss character name (ESI does not
 /// return a fleet name field). Never mutated after creation.
 ///
-/// mediaSource: Chosen by the FC at fleet creation. Immutable. All queue
+/// mediaSource: Chosen at fleet creation. Immutable. All queue
 /// submissions must match this platform.
 model Fleet {
     id            String      @id @default(uuid())
     esiFleetId    String      @unique
-    name          String      // FC's character name, set at creation from ESI
+    name          String      // Fleet Boss character name, set at creation from ESI
     joinToken     String      @unique
     mode          FleetMode   @default(CRUISE)
     mediaSource   MediaSource @default(YOUTUBE)
     battleVolumePercent    Int @default(25)
     downvoteDeletePercent  Int @default(50)
-    fcCharacterId Int
+    fcCharacterId Int // Backing Fleet Boss character ID; column name retained for compatibility.
 
     expiresAt   DateTime?
     disbandedAt DateTime?
@@ -161,8 +162,8 @@ model Fleet {
     @@index([disbandedAt, expiresAt])
 }
 
-/// Grants a non-FC character FC-level access within a specific fleet.
-/// Non-transferable — only the original FC (or another FC-role holder) may create rows.
+/// Grants a non-Boss/non-Commander character fleet-control access within a specific fleet.
+/// Non-transferable - only the Fleet Boss or Fleet Commander may create rows.
 model FleetDelegate {
     id          String   @id @default(uuid())
     fleetId     String

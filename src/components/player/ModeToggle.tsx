@@ -2,11 +2,12 @@
 
 import { useFleet } from "@/contexts/FleetContext";
 import { Tooltip } from "@/components/ui/Tooltip";
+import { hasFleetControl } from "@/lib/roles";
 
 export function ModeToggle() {
   const { state, send, myRole } = useFleet();
   const mode = state.mode;
-  const isFc = myRole === "FLEET_COMMANDER" || myRole === "FC_DELEGATE";
+  const isFc = hasFleetControl(myRole);
 
   function setMode(next: "CRUISE" | "BATTLE") {
     if (isFc && next !== mode) {

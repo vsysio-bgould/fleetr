@@ -7,8 +7,10 @@ import { AppShell } from "@/components/shell/AppShell";
 import { PlayerPanel } from "@/components/player/PlayerPanel";
 import { QueuePanel } from "@/components/queue/QueuePanel";
 import { ConnectionPill } from "@/components/ConnectionPill";
+import { InstructionsDialog } from "@/components/InstructionsButton";
 import { LogoutButton } from "@/components/LogoutButton";
 import { EventFeed } from "@/components/EventFeed";
+import { hasFleetControl } from "@/lib/roles";
 
 interface Props {
   children: React.ReactNode;
@@ -39,8 +41,6 @@ export function FleetShell({
   partyKitHost,
   partyKitToken,
 }: Props) {
-  const isFc = role === "FLEET_COMMANDER" || role === "FC_DELEGATE";
-
   return (
     <FleetProvider
       fleetId={fleetId}
@@ -52,14 +52,40 @@ export function FleetShell({
       partyKitHost={partyKitHost}
       partyKitToken={partyKitToken}
     >
-      {isFc ? (
-        <AppShell fleetId={fleetId} fleetName={fleetName} fcName={fcName}>
-          {children}
-        </AppShell>
-      ) : (
-        <LineMemberShell fleetName={fleetName} fcName={fcName} />
-      )}
+      <FleetChrome
+        fleetId={fleetId}
+        fleetName={fleetName}
+        fcName={fcName}
+        initialRole={role}
+      >
+        {children}
+      </FleetChrome>
     </FleetProvider>
+  );
+}
+
+function FleetChrome({
+  children,
+  fleetId,
+  fleetName,
+  fcName,
+  initialRole,
+}: {
+  children: React.ReactNode;
+  fleetId: string;
+  fleetName: string;
+  fcName: string;
+  initialRole: SessionRole;
+}) {
+  const { myRole } = useFleet();
+  const effectiveRole = myRole ?? initialRole;
+
+  return hasFleetControl(effectiveRole) ? (
+    <AppShell fleetId={fleetId} fleetName={fleetName} fcName={fcName}>
+      {children}
+    </AppShell>
+  ) : (
+    <LineMemberShell fleetName={fleetName} fcName={fcName} />
   );
 }
 
@@ -78,7 +104,7 @@ function LineMemberShell({ fleetName, fcName }: { fleetName: string; fcName: str
       <header className="flex items-center h-10 px-4 bg-[#0b0f14] border-b border-[#1f2a36] shrink-0 gap-3">
         <div className="flex items-baseline gap-3 min-w-0">
           <span className="text-sm font-semibold text-[#e6edf3] truncate">{fleetName}</span>
-          <span className="text-[11px] text-[#9aa4b2] truncate">FC: {fcName}</span>
+          <span className="text-[11px] text-[#9aa4b2] truncate">Boss: {fcName}</span>
         </div>
         <div className="ml-auto flex items-center gap-3 shrink-0">
           <span className="text-[11px] text-[#9aa4b2]">
@@ -105,32 +131,7 @@ function LineMemberShell({ fleetName, fcName }: { fleetName: string; fcName: str
         </div>
       </div>
       <EventFeed />
-      {helpOpen && <LineMemberHelp onClose={() => setHelpOpen(false)} />}
-    </div>
-  );
-}
-
-function LineMemberHelp({ onClose }: { onClose: () => void }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
-      <div className="w-full max-w-md rounded border border-fleet-border bg-[#121821] shadow-xl">
-        <div className="flex items-center justify-between border-b border-fleet-border px-4 py-3">
-          <h2 className="text-sm font-semibold text-fleet-text">How Fleetr Works</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-xs text-fleet-text-muted hover:text-fleet-text"
-          >
-            Close
-          </button>
-        </div>
-        <div className="space-y-3 px-4 py-4 text-sm text-fleet-text-muted">
-          <p>The FC controls the fleet reference track, mode, and fleet volume.</p>
-          <p>Add tracks to Cruise or Battle, then vote tracks up or down to shape the queue.</p>
-          <p>Use Catch Up if your player drifts behind the fleet reference position.</p>
-          <p>Battle Mode can lower playback volume while the FC is calling fights.</p>
-        </div>
-      </div>
+      {helpOpen && <InstructionsDialog onClose={() => setHelpOpen(false)} />}
     </div>
   );
 }

@@ -29,13 +29,15 @@ function ScopeSelectionPage() {
       .then((r) => r.json())
       .then((body: { data: ScopeSelectionData }) => {
         const d = body.data;
+        const requiredScopes = d.scopes.filter((s) => s.required).map((s) => s.scope);
         setData(d);
-        setSelectedScopes(d.preference ?? d.scopes.filter((s) => s.required).map((s) => s.scope));
+        setSelectedScopes(Array.from(new Set([...(d.preference ?? []), ...requiredScopes])));
       })
       .catch(console.error);
   }, []);
 
-  const toggleScope = (scope: string) => {
+  const toggleScope = (scope: string, required: boolean) => {
+    if (required) return;
     setSelectedScopes((prev) =>
       prev.includes(scope) ? prev.filter((s) => s !== scope) : [...prev, scope]
     );
@@ -52,17 +54,19 @@ function ScopeSelectionPage() {
 
   const handleContinue = async () => {
     if (!data) return;
+    const requiredScopes = data.scopes.filter((s) => s.required).map((s) => s.scope);
+    const scopes = Array.from(new Set([...selectedScopes, ...requiredScopes]));
     setLoading(true);
     try {
       await fetch("/api/v1/users/me/scope-preference", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ scopes: selectedScopes }),
+        body: JSON.stringify({ scopes }),
       });
       const res = await fetch("/api/v1/auth/begin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ scopes: selectedScopes, returnUrl }),
+        body: JSON.stringify({ scopes, returnUrl }),
       });
       const body = await res.json();
       const redirectUrl = body.data?.redirectUrl;
@@ -118,7 +122,8 @@ function ScopeSelectionPage() {
               <input
                 type="checkbox"
                 checked={selectedScopes.includes(gate.scope)}
-                onChange={() => toggleScope(gate.scope)}
+                onChange={() => toggleScope(gate.scope, gate.required)}
+                disabled={gate.required}
                 className="mt-1 accent-fleet-accent"
               />
               <div>

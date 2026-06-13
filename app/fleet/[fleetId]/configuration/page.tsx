@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ScopePrompt } from "@/components/ScopePrompt";
 import { useFleet } from "@/contexts/FleetContext";
 import { Tooltip } from "@/components/ui/Tooltip";
+import { sanitizeBasicHtml } from "@/lib/sanitize-html";
 
 interface FleetConfiguration {
   motd: string;
@@ -102,7 +103,7 @@ export default function FleetConfigurationPage() {
               {config.motd ? (
                 <div
                   className="min-h-40 rounded border border-fleet-border bg-[#0f141a] p-4 text-sm text-fleet-text overflow-auto [&_*]:!text-sm [&_*]:leading-snug"
-                  dangerouslySetInnerHTML={{ __html: config.motd }}
+                  dangerouslySetInnerHTML={{ __html: sanitizeBasicHtml(config.motd) }}
                 />
               ) : (
                 <div className="min-h-40 rounded border border-fleet-border bg-[#0f141a] p-4 text-sm text-fleet-text-muted">

@@ -12,13 +12,17 @@ export function QueuePanel() {
   const [activeTab, setActiveTab] = useState<"CRUISE" | "BATTLE">("CRUISE");
   const [showDeleted, setShowDeleted] = useState(false);
 
-  const byVotesThenPosition = (a: (typeof queue)[number], b: (typeof queue)[number]) =>
-    b.votes - a.votes || a.position - b.position;
+  const currentEntryId = state.nowPlaying?.queueEntryId ?? null;
+  const byScoreThenPosition = (a: (typeof queue)[number], b: (typeof queue)[number]) => {
+    if (a.id === currentEntryId && b.id !== currentEntryId) return -1;
+    if (b.id === currentEntryId && a.id !== currentEntryId) return 1;
+    return (b.votes - (b.downvotes ?? 0)) - (a.votes - (a.downvotes ?? 0)) || a.position - b.position;
+  };
 
   const activeEntries = queue.filter((e) => !e.removedAt);
   const deletedEntries = queue.filter((e) => e.removedAt);
-  const cruiseEntries = activeEntries.filter((e) => e.queue === "CRUISE").sort(byVotesThenPosition);
-  const battleEntries = activeEntries.filter((e) => e.queue === "BATTLE").sort(byVotesThenPosition);
+  const cruiseEntries = activeEntries.filter((e) => e.queue === "CRUISE").sort(byScoreThenPosition);
+  const battleEntries = activeEntries.filter((e) => e.queue === "BATTLE").sort(byScoreThenPosition);
   const visibleEntries = activeTab === "CRUISE" ? cruiseEntries : battleEntries;
   const visibleDeletedEntries = deletedEntries
     .filter((e) => e.queue === activeTab)

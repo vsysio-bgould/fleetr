@@ -5,6 +5,7 @@ import { useFleet } from "@/contexts/FleetContext";
 import { VoteButton } from "@/components/queue/VoteButton";
 import { DownvoteButton } from "@/components/queue/DownvoteButton";
 import { Tooltip } from "@/components/ui/Tooltip";
+import { hasFleetControl } from "@/lib/roles";
 
 interface Props {
   entry: QueueEntryType;
@@ -13,7 +14,7 @@ interface Props {
 
 export function QueueEntryRow({ entry, position }: Props) {
   const { fleetId, myRole, state, send } = useFleet();
-  const isFc = myRole === "FLEET_COMMANDER" || myRole === "FC_DELEGATE";
+  const isFc = hasFleetControl(myRole);
   const submitter = state.members[entry.submittedBy];
   const isRemoved = Boolean(entry.removedAt);
   const isNowPlaying = state.nowPlaying?.queueEntryId === entry.id;

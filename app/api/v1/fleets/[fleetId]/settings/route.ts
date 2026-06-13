@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import db from "@/lib/db";
 import { ok, errorResponse } from "@/lib/api-response";
-import { requireFleetCommander, requireSession } from "@/lib/guards";
+import { requireFleetControl, requireSession } from "@/lib/guards";
 import { ValidationError } from "@/lib/errors";
 import { broadcastToFleet } from "@/lib/broadcast";
 import type { ServerMessage } from "@/config/party-messages";
@@ -19,7 +19,7 @@ export async function PATCH(
   try {
     const { fleetId } = await Promise.resolve(params);
     const ctx = await requireSession(req, fleetId);
-    requireFleetCommander(ctx);
+    requireFleetControl(ctx);
 
     const body = await req.json();
     const parsed = settingsSchema.safeParse(body);

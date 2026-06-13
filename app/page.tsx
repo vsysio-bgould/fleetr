@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import db from "@/lib/db";
 import Link from "next/link";
+import { InstructionsButton } from "@/components/InstructionsButton";
 import { LogoutButton } from "@/components/LogoutButton";
 
 export default async function HomePage({
@@ -41,7 +42,7 @@ export default async function HomePage({
       <div className="bg-fleet-surface border border-fleet-border rounded-lg p-8 w-full max-w-sm flex flex-col gap-6 text-center">
         {disbanded && (
           <div className="rounded border border-amber-700/50 bg-amber-900/20 px-3 py-2 text-xs text-amber-300">
-            Your fleet has ended — the FC left the EVE fleet. Create a new one below.
+            Your fleet has ended - the FC left the EVE fleet. Create a new one below.
           </div>
         )}
         <div>
@@ -63,16 +64,19 @@ export default async function HomePage({
           </p>
         </div>
 
-        {token ? (
-          <LogoutButton className="text-xs text-fleet-text-muted hover:text-fleet-text transition-colors" />
-        ) : (
-          <Link
-            href="/login"
-            className="text-xs text-fleet-text-muted hover:text-fleet-text transition-colors"
-          >
-            Sign in with EVE Online
-          </Link>
-        )}
+        <div className="flex items-center justify-center gap-4">
+          <InstructionsButton />
+          {token ? (
+            <LogoutButton className="text-xs text-fleet-text-muted hover:text-fleet-text transition-colors" />
+          ) : (
+            <Link
+              href="/login"
+              className="text-xs text-fleet-text-muted hover:text-fleet-text transition-colors"
+            >
+              Sign in with EVE Online
+            </Link>
+          )}
+        </div>
       </div>
     </div>
   );
