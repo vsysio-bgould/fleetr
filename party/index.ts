@@ -18,6 +18,7 @@ interface ConnectionState {
   characterName: string;
   role: SessionRole;
   isOperator?: boolean;
+  authToken?: string;
   fleetId: string;
   battleVolumePercent: number;
   downvoteDeletePercent: number;
@@ -97,7 +98,7 @@ export default class FleetServer implements Party.Server {
         throw new Error(`validation returned ${res.status}: ${body.slice(0, 200)}`);
       }
 
-      connectionState = await res.json();
+      connectionState = { ...await res.json(), authToken: token };
     } catch (err) {
       console.error(
         `[onConnect] room=${this.room.id} rejected: validate-connection failed ` +
@@ -194,14 +195,17 @@ export default class FleetServer implements Party.Server {
       return;
     }
 
-    const hasControl = state.isOperator === true || hasFleetControl(state.role);
-
     switch (parsed.type) {
       case "fleet:set-track":
       case "fleet:advance":
       case "fleet:set-mode":
       case "fleet:set-volume": {
+        const hasControl = await this.hasControl(sender, state);
         if (!hasControl) {
+          console.warn(
+            `[onMessage] room=${this.room.id} rejected control message: ` +
+              `characterId=${state.characterId} role=${state.role} isOperator=${state.isOperator === true}`
+          );
           sender.send(
             JSON.stringify({
               type: "error",
@@ -226,6 +230,66 @@ export default class FleetServer implements Party.Server {
         );
       }
     }
+  }
+
+  private async hasControl(
+    conn: Party.Connection,
+    state: ConnectionState
+  ): Promise<boolean> {
+    if (state.isOperator === true || hasFleetControl(state.role)) {
+      return true;
+    }
+
+    const refreshed = await this.refreshConnectionState(state.authToken);
+    if (!refreshed) {
+      return false;
+    }
+
+    const nextState: ConnectionState = {
+      ...refreshed,
+      authToken: state.authToken,
+    };
+    conn.setState(nextState);
+
+    return nextState.isOperator === true || hasFleetControl(nextState.role);
+  }
+
+  private async refreshConnectionState(
+    token: string | undefined
+  ): Promise<Omit<ConnectionState, "authToken"> | null> {
+    if (!token) return null;
+
+    const appUrl = (this.room.env.PARTYKIT_APP_URL as string | undefined)
+      ?? (this.room.env.APP_URL as string | undefined)
+      ?? "http://localhost:3000";
+    const secret = this.room.env.PARTYKIT_SECRET as string | undefined;
+    const fleetId = this.room.id.replace("fleet-", "");
+
+    if (!secret) return null;
+
+    const res = await fetch(
+      `${appUrl}/api/v1/internal/fleets/${fleetId}/validate-connection`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-PartyKit-Secret": secret,
+        },
+        body: JSON.stringify({ token }),
+      }
+    ).catch((err: unknown) => {
+      console.error(
+        `[onMessage] room=${this.room.id} auth refresh failed (appUrl=${appUrl}): ` +
+          (err instanceof Error ? err.message : String(err))
+      );
+      return null;
+    });
+
+    if (!res?.ok) {
+      return null;
+    }
+
+    return await res.json() as Omit<ConnectionState, "authToken">;
   }
 
   /** Handle internal broadcast from the Next.js API. */
