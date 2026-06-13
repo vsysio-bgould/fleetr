@@ -6,6 +6,7 @@ import { useFleet } from "@/contexts/FleetContext";
 import { ConnectionPill } from "@/components/ConnectionPill";
 import { InstructionsDialog } from "@/components/InstructionsButton";
 import { LogoutButton } from "@/components/LogoutButton";
+import { Tooltip } from "@/components/ui/Tooltip";
 
 interface Props {
   fleetId: string;
@@ -26,6 +27,7 @@ export function FleetHeader({
   const { nowPlaying, members } = state;
   const memberCount = Object.keys(members).length;
   const [helpOpen, setHelpOpen] = useState(false);
+  const [shareState, setShareState] = useState<"idle" | "copying" | "copied" | "failed">("idle");
   const [currentEveFleetId, setCurrentEveFleetId] = useState<string | null>(null);
   const router = useRouter();
 
@@ -58,6 +60,27 @@ export function FleetHeader({
   function handleFleetChange(nextFleetId: string) {
     if (nextFleetId && nextFleetId !== fleetId) {
       router.push(`/fleet/${nextFleetId}`);
+    }
+  }
+
+  async function handleShareLink() {
+    setShareState("copying");
+    try {
+      const res = await fetch(`/api/v1/fleets/${fleetId}/token`, {
+        cache: "no-store",
+      });
+      if (!res.ok) throw new Error("Could not load join link");
+      const body = await res.json();
+      const joinUrl = body.data?.joinUrl;
+      if (typeof joinUrl !== "string" || joinUrl.length === 0) {
+        throw new Error("Join link missing");
+      }
+      await navigator.clipboard.writeText(joinUrl);
+      setShareState("copied");
+      window.setTimeout(() => setShareState("idle"), 1800);
+    } catch {
+      setShareState("failed");
+      window.setTimeout(() => setShareState("idle"), 2500);
     }
   }
 
@@ -113,6 +136,22 @@ export function FleetHeader({
           {memberCount} member{memberCount !== 1 ? "s" : ""}
         </div>
         <ConnectionPill status={connection} />
+        <Tooltip content="Copy the fleet invitation link to your clipboard" side="top">
+          <button
+            type="button"
+            onClick={handleShareLink}
+            disabled={shareState === "copying"}
+            className="text-[11px] text-[#9aa4b2] hover:text-[#e6edf3] border border-[#1f2a36] hover:border-[#3fa7ff] rounded px-2 py-1 transition-colors disabled:opacity-50"
+          >
+            {shareState === "copied"
+              ? "Copied"
+              : shareState === "failed"
+                ? "Failed"
+                : shareState === "copying"
+                  ? "Copying"
+                  : "Share"}
+          </button>
+        </Tooltip>
         <button
           type="button"
           onClick={() => setHelpOpen(true)}

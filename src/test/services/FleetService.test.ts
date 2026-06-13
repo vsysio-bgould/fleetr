@@ -45,6 +45,7 @@ describe("FleetService", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.unstubAllEnvs();
     mockEsi = createMockEsiClient();
     service = new FleetService(mockEsi);
   });
@@ -232,6 +233,24 @@ describe("FleetService", () => {
       ).rejects.toThrow(
         FleetExpiredError
       );
+    });
+  });
+
+  describe("getJoinLink", () => {
+    it("returns the existing join link without regenerating it", async () => {
+      const db = (await import("@/lib/db")).default;
+      vi.stubEnv("APP_URL", "https://fleetr.example");
+      vi.mocked(db.fleet.findUnique).mockResolvedValueOnce({
+        joinToken: "existing-token",
+      } as never);
+
+      const result = await service.getJoinLink("fleet-uuid");
+
+      expect(result).toEqual({
+        joinToken: "existing-token",
+        joinUrl: "https://fleetr.example/join/existing-token",
+      });
+      expect(db.fleet.update).not.toHaveBeenCalled();
     });
   });
 });

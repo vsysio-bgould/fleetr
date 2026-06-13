@@ -112,11 +112,10 @@ export class FleetService {
       "Fleet created"
     );
 
-    const appUrl = process.env.APP_URL ?? "https://fleetr.app";
     return {
       fleetId: fleet.id,
       joinToken,
-      joinUrl: `${appUrl}/join/${joinToken}`,
+      joinUrl: buildJoinUrl(joinToken),
     };
   }
 
@@ -181,11 +180,28 @@ export class FleetService {
     const joinToken = generateJoinToken();
     await db.fleet.update({ where: { id: fleetId }, data: { joinToken } });
 
-    const appUrl = process.env.APP_URL ?? "https://fleetr.app";
-    return { joinToken, joinUrl: `${appUrl}/join/${joinToken}` };
+    return { joinToken, joinUrl: buildJoinUrl(joinToken) };
+  }
+
+  async getJoinLink(fleetId: string): Promise<{ joinToken: string; joinUrl: string }> {
+    const fleet = await db.fleet.findUnique({
+      where: { id: fleetId },
+      select: { joinToken: true },
+    });
+
+    if (!fleet) throw new NotFoundError("Fleet");
+    return {
+      joinToken: fleet.joinToken,
+      joinUrl: buildJoinUrl(fleet.joinToken),
+    };
   }
 }
 
 function generateJoinToken(): string {
   return crypto.randomBytes(16).toString("hex");
+}
+
+function buildJoinUrl(joinToken: string): string {
+  const appUrl = process.env.APP_URL ?? "https://fleetr.app";
+  return `${appUrl}/join/${joinToken}`;
 }
