@@ -29,7 +29,7 @@ export function Tooltip({ content, children, side = "right" }: Props) {
       {children}
       {visible && (
         <div
-          className={`absolute z-50 bg-slate-900/70 backdrop-blur-md border border-cyan-500/30 rounded-md shadow-lg text-xs p-3 pointer-events-none whitespace-nowrap max-w-[300px] ${sideClass}`}
+          className={`absolute z-50 bg-slate-900/70 backdrop-blur-md border border-cyan-500/30 rounded-md shadow-lg text-xs p-3 pointer-events-none w-max max-w-[300px] whitespace-normal ${sideClass}`}
         >
           {content}
         </div>

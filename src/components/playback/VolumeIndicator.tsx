@@ -13,10 +13,8 @@ export function VolumeIndicator() {
   const pendingVolumeRef = useRef<number | null>(null);
   const sendTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isFc = hasFleetControl(myRole);
-  const controlVolume = isFc ? state.volume : localVolume;
-  const [draftVolume, setDraftVolume] = useState(controlVolume);
-  const draftFleetVolume = isFc ? draftVolume : state.volume;
-  const draftLocalVolume = isFc ? localVolume : draftVolume;
+  const [draftFleetVolume, setDraftFleetVolume] = useState(state.volume);
+  const [draftLocalVolume, setDraftLocalVolume] = useState(localVolume);
   const battleMultiplier = state.battleVolumePercent / 100;
   const effectiveVolume = Math.round(
     draftLocalVolume *
@@ -25,8 +23,12 @@ export function VolumeIndicator() {
   );
 
   useEffect(() => {
-    setDraftVolume(controlVolume);
-  }, [controlVolume]);
+    setDraftFleetVolume(state.volume);
+  }, [state.volume]);
+
+  useEffect(() => {
+    setDraftLocalVolume(localVolume);
+  }, [localVolume]);
 
   useEffect(() => {
     return () => {
@@ -43,10 +45,6 @@ export function VolumeIndicator() {
   };
 
   const scheduleVolumeSend = (v: number) => {
-    if (!isFc) {
-      setLocalVolume(v);
-      return;
-    }
     pendingVolumeRef.current = v;
 
     const elapsed = Date.now() - lastSentAtRef.current;
@@ -67,32 +65,75 @@ export function VolumeIndicator() {
     }
   };
 
+  const handleLocalVolumeChange = (volume: number) => {
+    setDraftLocalVolume(volume);
+    setLocalVolume(volume);
+  };
+
+  const handleFleetVolumeChange = (volume: number) => {
+    setDraftFleetVolume(volume);
+    scheduleVolumeSend(volume);
+  };
+
+  const localTooltip =
+    "Local Volume: Change your local volume. This does not affect the fleet's volume.";
+  const fleetTooltip =
+    "Fleet Volume: Change volume for fleet members. This reduces playback to a fraction of each member's local volume; 25% local and 20% fleet becomes 5%.";
+
+  return (
+    <div className="flex items-center gap-3">
+      <VolumeSlider
+        label="Local Vol"
+        value={draftLocalVolume}
+        tooltip={localTooltip}
+        onChange={handleLocalVolumeChange}
+      />
+      {isFc && (
+        <VolumeSlider
+          label="Fleet Vol"
+          value={draftFleetVolume}
+          tooltip={fleetTooltip}
+          onChange={handleFleetVolumeChange}
+        />
+      )}
+      <span className="text-xs text-fleet-text-muted w-14 text-right">
+        {effectiveVolume}
+      </span>
+    </div>
+  );
+}
+
+function VolumeSlider({
+  label,
+  value,
+  tooltip,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  tooltip: string;
+  onChange: (volume: number) => void;
+}) {
   return (
     <div className="flex items-center gap-2">
-      <span className="text-xs text-fleet-text-muted">
-        {isFc ? "Fleet Vol" : "Local Max"}
-      </span>
+      <span className="text-xs text-fleet-text-muted whitespace-nowrap">{label}</span>
       <Tooltip
-        content={isFc ? "Set fleet-wide volume multiplier" : "Set your local maximum volume"}
+        content={tooltip}
         side="top"
       >
         <input
           type="range"
           min={0}
           max={100}
-          value={draftVolume}
+          value={value}
           onChange={(e) => {
             const next = Number(e.target.value);
-            setDraftVolume(next);
-            scheduleVolumeSend(next);
+            onChange(next);
           }}
-          className="w-24 accent-fleet-accent disabled:opacity-50"
+          className="w-20 accent-fleet-accent disabled:opacity-50"
         />
       </Tooltip>
-      <span className="text-xs text-fleet-text-muted w-14 text-right">
-        {effectiveVolume}
-        {effectiveVolume !== draftVolume ? `/${draftVolume}` : ""}
-      </span>
+      <span className="text-xs text-fleet-text-muted w-8 text-right">{value}</span>
     </div>
   );
 }
