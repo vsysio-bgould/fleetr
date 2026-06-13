@@ -114,6 +114,7 @@ describe("POST /api/v1/internal/fleets/:id/validate-connection", () => {
     expect(body.characterId).toBe(12345);
     expect(body.characterName).toBe("Test Pilot");
     expect(body.role).toBe("FLEET_COMMANDER");
+    expect(body.isOperator).toBe(false);
     expect(body.fleetId).toBe("fleet-uuid");
   });
 
@@ -145,5 +146,6 @@ describe("POST /api/v1/internal/fleets/:id/validate-connection", () => {
     expect(res.status).toBe(200);
     expect(body.characterName).toBe("Operator Pilot");
     expect(body.role).toBe("FLEET_BOSS");
+    expect(body.isOperator).toBe(true);
   });
 });

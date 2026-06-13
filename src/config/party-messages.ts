@@ -36,6 +36,7 @@ export interface ConnectionState {
     characterId: number;
     characterName: string;
     role: SessionRole;
+    isOperator?: boolean;
     fleetId: string;
 }
 

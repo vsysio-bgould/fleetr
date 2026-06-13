@@ -93,6 +93,7 @@ export async function POST(
       characterId,
       characterName: user?.characterName ?? "Unknown",
       role: isOperator ? "FLEET_BOSS" : session?.role,
+      isOperator,
       fleetId,
       battleVolumePercent: fleet.battleVolumePercent,
       downvoteDeletePercent: fleet.downvoteDeletePercent,

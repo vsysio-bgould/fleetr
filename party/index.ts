@@ -17,6 +17,7 @@ interface ConnectionState {
   characterId: number;
   characterName: string;
   role: SessionRole;
+  isOperator?: boolean;
   fleetId: string;
   battleVolumePercent: number;
   downvoteDeletePercent: number;
@@ -193,14 +194,14 @@ export default class FleetServer implements Party.Server {
       return;
     }
 
-    const isFc = hasFleetControl(state.role);
+    const hasControl = state.isOperator === true || hasFleetControl(state.role);
 
     switch (parsed.type) {
       case "fleet:set-track":
       case "fleet:advance":
       case "fleet:set-mode":
       case "fleet:set-volume": {
-        if (!isFc) {
+        if (!hasControl) {
           sender.send(
             JSON.stringify({
               type: "error",
